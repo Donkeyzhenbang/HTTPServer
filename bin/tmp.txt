@@ -14,7 +14,6 @@
 #include <queue>        //用于 std::queue
 #include <ctime>        //用于时间处理
 #include <vector>       //用于 std::vector
-#include <unordered_map> //用于管理每个连接的队列
 #include "../inc/sendfile.h"
 #include "../inc/heartbeat.h"
 #include "../inc/recvfile.h"
@@ -127,65 +126,9 @@ public:
         return x;
     }
 };
+static MyQueue que_buf;//所有的都会从这过
+// unsigned char recvbuf[2048];
 
-/**
- * @brief 连接上下文，包含每个连接的队列和线程信息
- * 
- */
-struct ConnectionContext {
-    std::unique_ptr<MyQueue> queue;
-    pthread_t read_thread;
-    int connfd;
-    
-    ConnectionContext(int fd) : connfd(fd) {
-        queue = std::make_unique<MyQueue>();
-    }
-    
-    ~ConnectionContext() {
-        // 确保线程被取消
-        if (read_thread) {
-            pthread_cancel(read_thread);
-        }
-    }
-};
-
-// 全局连接管理器，使用文件描述符作为key
-static std::unordered_map<int, std::unique_ptr<ConnectionContext>> connection_manager;
-
-/**
- * @brief 获取连接的队列
- * 
- * @param fd 连接的文件描述符
- * @return MyQueue* 队列指针，如果连接不存在返回nullptr
- */
-static MyQueue* get_connection_queue(int fd) {
-    auto it = connection_manager.find(fd);
-    if (it != connection_manager.end()) {
-        return it->second->queue.get();
-    }
-    return nullptr;
-}
-
-/**
- * @brief 创建新的连接上下文
- * 
- * @param fd 连接的文件描述符
- * @return ConnectionContext* 连接上下文指针
- */
-static ConnectionContext* create_connection_context(int fd) {
-    auto context = std::make_unique<ConnectionContext>(fd);
-    auto result = connection_manager.emplace(fd, std::move(context));
-    return result.first->second.get();
-}
-
-/**
- * @brief 删除连接上下文
- * 
- * @param fd 连接的文件描述符
- */
-static void remove_connection_context(int fd) {
-    connection_manager.erase(fd);
-}
 
 /**
  * @brief 等待心跳包协议
@@ -255,16 +198,13 @@ int waitForB342(int fd)
 /**
  * @brief 开始TCP客户端接收线程
  * 
- * @param pContext 连接上下文
+ * @param pSocketId 
  */
-void StartReadThread(ConnectionContext* pContext)
+void StartReadThread(int* pSocketId, pthread_t* tId)
 {
     GlobalFlag = false;
-    int ret = pthread_create(&pContext->read_thread, NULL, [](void* context_ptr)->void* {
-        ConnectionContext* context = static_cast<ConnectionContext*>(context_ptr);
-        MyQueue* pQueue = context->queue.get();
-        int connfd = context->connfd;
-        
+    // pthread_t tId;
+    int ret = pthread_create(tId,NULL,[](void*sockid)->void* {
         //使用智能指针管理
         shared_ptr<unsigned char[]> pRecvbuf(new unsigned char[2048]);
         int times = 0;
@@ -273,7 +213,8 @@ void StartReadThread(ConnectionContext* pContext)
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
         while(1) {
-            int len = read(connfd, pRecvbuf.get(), 2048);
+            int fd = *(int*)sockid;
+            int len = read(fd, pRecvbuf.get(), 2048);
             if(len < 0) {
                 //出错
                 printf("%s\n", strerror(errno)); 
@@ -293,7 +234,7 @@ void StartReadThread(ConnectionContext* pContext)
                 return (void*)0;
             }
             for(int i=0;i<len;i++) {
-                pQueue->push(pRecvbuf.get()[i]);
+                que_buf.push(pRecvbuf.get()[i]);
             }
             times ++;
             if(times%100==0){
@@ -303,12 +244,12 @@ void StartReadThread(ConnectionContext* pContext)
             pthread_testcancel();
         }
         return (void*) 0;
-    }, pContext);
+    }, pSocketId);
     if(ret){
         //出错
         return;
     }
-    pthread_detach(pContext->read_thread);
+    pthread_detach(*tId);
 }
 
 
@@ -318,10 +259,9 @@ void StartReadThread(ConnectionContext* pContext)
  * 
  * @param sockfd 
  * @param pPacket 
- * @param pQueue 连接的队列
  * @return int 返回0代表正常，其他代表错误
  */
-int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue)
+int recv_and_resolve(int sockfd, Packet_t* pPacket)
 {
     enum Rx_Status {Rx_Sync_1,Rx_Sync_2,Rx_Length_1,Rx_Length_2,Rx_Data,Rx_End};
     enum Rx_Status rx_status = Rx_Sync_1;
@@ -331,7 +271,7 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue)
     int cnt = 0;
     while(!packetBufferStatus){
         
-        int size = pQueue->size();
+        int size = que_buf.size();
         // printf("管道里还有多少字节%d\n",size);
         if(size == 0) {
             // sleep(1);
@@ -342,8 +282,8 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue)
         if(cnt >= 15) //!注意这里死循环 会造成bug:客户端主动断联服务器对应线程无法退出
             return -1;
         for(int i=0;i<size;i++) {
-            unsigned char rx_temp = pQueue->front();
-            pQueue->pop();
+            unsigned char rx_temp = que_buf.front();
+            que_buf.pop();
             switch(rx_status){
                 case Rx_Sync_1://接收包头
                     rx_status = rx_temp == 0xA5 ? Rx_Sync_2:Rx_Sync_1;
@@ -474,22 +414,13 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     u_int8 frameType,packetType;
     //填入指针
     int index = 0;
-    
-    // 获取当前连接的队列
-    MyQueue* pQueue = get_connection_queue(fd);
-    if (!pQueue) {
-        printf("错误：找不到连接 %d 的队列\n", fd);
-        free(pPhotoBuffer);
-        return -1;
-    }
-    
     do {
         do{
             // Packet_t* pPacket = new Packet_t; 
             unique_ptr<Packet_t> pPacket(new Packet_t);//需要这种方式进行初始化
             // unique_ptr<Packet_t> pPacket = make_unique<Packet_t>();//C++14，才有make_unique
 
-            recv_and_resolve(fd, pPacket.get(), pQueue);
+            recv_and_resolve(fd,pPacket.get());
             //从包中解析
             getFramePacketType(pPacket->packetBuffer, &frameType, &packetType);
             // printf("frameType=0x%x, packetType=0x%x\n",frameType,packetType);
@@ -566,36 +497,24 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
 void *HandleClient(void *arg) {
     int connfd = *(int *)arg;
     free(arg);  // 释放动态分配的内存
-    
-    // 为每个连接创建独立的队列和上下文
-    ConnectionContext* context = create_connection_context(connfd);
-    
     int times = 0;
+    pthread_t read_thread;
     printf("新客户端线程启动...\n");
     waitForHeartBeat(connfd);
     SendHeartbeat(connfd);
     printf("已发送心跳协议 \n");
     mv_sleep(200);
-    StartReadThread(context);   
+    StartReadThread(&connfd, &read_thread);   
     while (1) {
         Packet_t* pPacket = new Packet_t; 
-        
-        // 获取当前连接的队列
-        MyQueue* pQueue = get_connection_queue(connfd);
-        if (!pQueue) {
-            printf("错误：找不到连接 %d 的队列\n", connfd);
-            delete pPacket;
-            break;
-        }
-        
-        int ret = recv_and_resolve(connfd, pPacket, pQueue);
+        int ret = recv_and_resolve(connfd, pPacket);
         printf("返回值%d, times = %d\n", ret, ++times);
         if (-1 == ret) {
             close(connfd);
             delete pPacket;
             printf("客户端断开连接...\n");
             printf("客户端线程结束...\n");
-            remove_connection_context(connfd);
+            pthread_cancel(read_thread);
             pthread_exit(NULL);
         }
 
@@ -606,9 +525,7 @@ void *HandleClient(void *arg) {
             break;
 
     }
-    
-    // 清理连接上下文
-    remove_connection_context(connfd);
+    pthread_cancel(read_thread);
     close(connfd);
     printf("客户端线程结束...\n");
     pthread_exit(NULL);
@@ -673,3 +590,4 @@ void *HandleMCU(void *arg) {
     pthread_exit(NULL);
     return (void*)0;
 }
+
