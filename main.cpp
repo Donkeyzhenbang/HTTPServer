@@ -8,12 +8,18 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
-
+#include <unordered_map>
+#include <mutex>
 #include "recvfile.h"
 #include "utils.h"
+#include "http_server.h"
+
 
 #define SERVER_PORT 52487
 #define MCU_PORT 1037
+
+std::unordered_map<std::string, int> g_device_map;
+std::mutex g_device_mtx;
 
 // Ensure we declare the C-linkage signature to match implementation
 #ifdef __cplusplus
@@ -97,11 +103,18 @@ void* wait_for_client(void* sockfd_ptr)
     return (void*)0;
 }
 
+static void* http_thread(void*) {
+    start_http_server();
+    return nullptr;
+}
+
 int main(void) {
     int sockfd, sockfd_mcu;
     struct sockaddr_in server_addr = {}, server_addr_mcu = {};
     initialize_server(&sockfd, &server_addr, SERVER_PORT);
     initialize_server(&sockfd_mcu, &server_addr_mcu, MCU_PORT);
+
+
 
     pthread_t tid1;
     if (pthread_create(&tid1, NULL, wait_for_client, (void*)&sockfd) != 0) {
@@ -110,6 +123,9 @@ int main(void) {
         close(sockfd_mcu);
         return 1;
     }
+
+    pthread_t http_tid;
+    pthread_create(&http_tid, NULL, http_thread, NULL);
 
     pthread_join(tid1, NULL);
 

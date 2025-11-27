@@ -1,0 +1,144 @@
+<!-- index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>要图示例 - 摄像头展示</title>
+  <style>
+    body { background:#061d22; color:#c7f7f7; font-family: Arial, sans-serif; margin:0; padding:20px; }
+    .top { display:flex; gap:20px; align-items:center; }
+    .upload-box { background:#07363b; padding:12px; border-radius:8px; }
+    input[type=file] { color:#fff; }
+    .gallery { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; }
+    .thumb { width:160px; height:90px; overflow:hidden; border-radius:6px; background:#000; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid rgba(0,255,220,0.08); }
+    .thumb img { max-width:100%; max-height:100%; }
+    .viewer { margin-top:20px; border:2px solid #0f8b8f; padding:6px; border-radius:6px; width:900px; height:500px; background:#021212; display:flex; align-items:center; justify-content:center; }
+    .device-list { margin-left:40px; min-width:240px; background:#022b2f; padding:12px; border-radius:8px; }
+    .device { padding:8px; border-bottom:1px dashed #024; display:flex; justify-content:space-between; align-items:center; }
+    .btn { background:linear-gradient(#06b3b0,#028b86); color:#021212; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
+    .small { padding:4px 8px; font-size:0.9em; }
+    .muted { color:#a8eae6; font-size:0.9em; }
+  </style>
+</head>
+<body>
+  <h1>摄像头要图演示</h1>
+  <div class="top">
+    <div class="upload-box">
+      <form id="uploadForm">
+        <input id="fileInput" type="file" name="image" accept="image/*" />
+        <button type="submit" class="btn small">上传图片</button>
+      </form>
+      <div id="uploadResult" class="muted"></div>
+    </div>
+
+    <div class="device-list" id="deviceList">
+      <h3>已注册设备</h3>
+      <div id="devicesContainer"><div class="muted">正在加载...</div></div>
+    </div>
+  </div>
+
+  <div id="viewer" class="viewer">大图预览区域（点击缩略图）</div>
+
+  <h3>图片库</h3>
+  <div id="gallery" class="gallery"></div>
+
+<script>
+async function fetchJSON(url, opts){ const r = await fetch(url, opts); return r.json(); }
+
+async function loadDevices(){
+  try{
+    const arr = await fetch('/api/devices').then(r=>r.json());
+    const c = document.getElementById('devicesContainer');
+    c.innerHTML = '';
+    if (!arr || arr.length===0) { c.innerHTML = '<div class="muted">当前无设备连接</div>'; return; }
+    arr.forEach(dev=>{
+      const div = document.createElement('div'); div.className='device';
+      const left = document.createElement('div'); left.innerHTML = `<strong>${dev}</strong>`;
+      const right = document.createElement('div');
+      const btn1 = document.createElement('button'); btn1.className='btn small'; btn1.innerText='要图(通道1)';
+      btn1.onclick = async () => {
+        btn1.disabled = true;
+        try {
+          const resp = await fetch('/api/request_snapshot', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({device: dev, channel:1})
+          });
+          const j = await resp.json();
+          if (j.ok) alert('已下发要图指令');
+          else alert('发送失败: ' + (j.error||'unknown'));
+        } catch(e){ alert('请求失败: '+e); }
+        btn1.disabled = false;
+      };
+      right.appendChild(btn1);
+      div.appendChild(left);
+      div.appendChild(right);
+      c.appendChild(div);
+    });
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function loadImages(){
+  try{
+    const arr = await fetch('/api/images').then(r=>r.json());
+    const g = document.getElementById('gallery');
+    g.innerHTML = '';
+    if (!arr || arr.length===0) { g.innerHTML = '<div class="muted">暂无图片</div>'; return; }
+    arr.forEach(name=>{
+      const th = document.createElement('div'); th.className='thumb';
+      const img = document.createElement('img');
+      img.src = '/uploads?name=' + encodeURIComponent(name);
+      img.alt = name;
+      th.appendChild(img);
+      th.onclick = () => {
+        const viewer = document.getElementById('viewer');
+        viewer.innerHTML = '';
+        const big = document.createElement('img');
+        big.src = img.src;
+        big.style.maxWidth = '100%';
+        big.style.maxHeight = '100%';
+        viewer.appendChild(big);
+      };
+      // 小标题
+      const caption = document.createElement('div'); caption.className='muted'; caption.style.fontSize='0.8em'; caption.style.marginTop='6px';
+      caption.innerText = name;
+      const wrapper = document.createElement('div');
+      wrapper.appendChild(th);
+      wrapper.appendChild(caption);
+      g.appendChild(wrapper);
+    });
+  } catch(e) { console.error(e); }
+}
+
+document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const f = document.getElementById('fileInput').files[0];
+  if (!f) { alert('请选择文件'); return; }
+  const fd = new FormData();
+  fd.append('image', f, f.name);
+  const resDiv = document.getElementById('uploadResult');
+  resDiv.innerText = '上传中...';
+  try {
+    const resp = await fetch('/upload', { method:'POST', body: fd });
+    const j = await resp.json();
+    if (j.ok) {
+      resDiv.innerText = '上传成功: ' + j.filename;
+      await loadImages();
+    } else {
+      resDiv.innerText = '上传失败';
+    }
+  } catch (e) {
+    resDiv.innerText = '上传异常: ' + e;
+  }
+});
+
+// 初始化
+loadDevices();
+loadImages();
+// 每 3 秒刷新设备列表
+setInterval(loadDevices, 3000);
+</script>
+</body>
+</html>
