@@ -31,24 +31,83 @@ static std::vector<std::string> list_uploaded_files(const std::string &dir) {
     return res;
 }
 
-// helper: write file content to web/uploads and return saved filename
+// 新增：获取可执行文件所在目录
+static std::string get_exe_dir() {
+    char buf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len == -1) {
+        // fallback to "."
+        return ".";
+    }
+    buf[len] = '\0';
+    std::string full = buf;
+    auto pos = full.find_last_of('/');
+    if (pos == std::string::npos) return ".";
+    return full.substr(0, pos);
+}
+
+// 新增：确保目录存在（递归创建）
+static bool ensure_dir_exists(const std::string &dir) {
+    // simple approach: try mkdir with mode 0755; if exists, ok
+    struct stat st;
+    if (stat(dir.c_str(), &st) == 0) {
+        if (S_ISDIR(st.st_mode)) return true;
+        return false;
+    }
+    // create parent recursively (naive approach)
+    std::string cur;
+    for (size_t i = 0; i < dir.size(); ++i) {
+        cur.push_back(dir[i]);
+        if (dir[i] == '/' || i + 1 == dir.size()) {
+            if (cur.empty()) continue;
+            // remove trailing slash
+            std::string tocreate = cur;
+            if (tocreate.size() > 1 && tocreate.back() == '/') tocreate.pop_back();
+            if (tocreate.empty()) continue;
+            if (stat(tocreate.c_str(), &st) == 0) continue;
+            if (mkdir(tocreate.c_str(), 0755) != 0 && errno != EEXIST) {
+                std::cerr << "[HTTP] mkdir failed for " << tocreate << " errno=" << errno << "\n";
+                return false;
+            }
+        }
+    }
+    // final check
+    return stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+// 全局（静态）upload dir computed once
+static std::string g_upload_dir;
+
+// 修改 save_upload_to_web：使用绝对 path
 static std::string save_upload_to_web(const std::string &filename,
                                       const std::string &content) {
-    // ensure uploads dir exists (most build systems will ensure)
-    std::string dir = "web/uploads";
-    // create unique name: timestamp_filename
+    if (g_upload_dir.empty()) {
+        std::string exe_dir = get_exe_dir(); // e.g. /home/jym/.../bin
+        g_upload_dir = exe_dir + "/web/uploads";
+    }
+
+    if (!ensure_dir_exists(g_upload_dir)) {
+        std::cerr << "[HTTP] ensure_dir_exists failed: " << g_upload_dir << std::endl;
+        return "";
+    }
+
     std::ostringstream oss;
     oss << std::time(nullptr) << "_" << filename;
     std::string saved = oss.str();
-    std::string path = dir + "/" + saved;
+    std::string path = g_upload_dir + "/" + saved;
+
+    // debug print
+    std::cerr << "[HTTP] saving upload to: " << path << " (size=" << content.size() << ")\n";
+
     std::ofstream ofs(path, std::ios::binary);
     if (!ofs) {
-        std::cerr << "[HTTP] 无法写文件: " << path << std::endl;
+        std::cerr << "[HTTP] 无法打开写入文件: " << path << " errno=" << errno << "\n";
         return "";
     }
     ofs.write(content.data(), (std::streamsize)content.size());
     ofs.close();
-    return saved;
+
+    return saved; // note: caller will prepend /uploads/ when returning URL
 }
 
 void start_http_server() {

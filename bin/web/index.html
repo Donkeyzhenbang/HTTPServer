@@ -89,14 +89,16 @@ async function loadImages(){
     arr.forEach(name=>{
       const th = document.createElement('div'); th.className='thumb';
       const img = document.createElement('img');
-      img.src = '/uploads?name=' + encodeURIComponent(name);
+      // img.src = '/uploads?name=' + encodeURIComponent(name);
+      img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
       img.alt = name;
       th.appendChild(img);
       th.onclick = () => {
         const viewer = document.getElementById('viewer');
         viewer.innerHTML = '';
         const big = document.createElement('img');
-        big.src = img.src;
+        // big.src = img.src;
+        big.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
         big.style.maxWidth = '100%';
         big.style.maxHeight = '100%';
         viewer.appendChild(big);
