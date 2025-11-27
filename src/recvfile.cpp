@@ -15,6 +15,12 @@
 #include <ctime>        //用于时间处理
 #include <vector>       //用于 std::vector
 #include <unordered_map> //用于管理每个连接的队列
+#include <sys/stat.h>
+#include <limits.h>
+#include <errno.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include "../inc/sendfile.h"
 #include "../inc/heartbeat.h"
 #include "../inc/recvfile.h"
@@ -443,6 +449,47 @@ static int SampleHander(unsigned char* pBuffer, int Length, int fd)
     return 0;    
 }
 
+/****************************************************************************/
+
+// 获取当前可执行文件所在目录，例如： /home/jym/.../bin
+static std::string get_exe_dir() {
+    char buf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len == -1) return "."; // fallback
+    buf[len] = '\0';
+    std::string full = buf;
+    size_t pos = full.find_last_of('/');
+    if (pos == std::string::npos) return ".";
+    return full.substr(0, pos);
+}
+
+// 递归确保目录存在（比较简单、可靠）
+static bool ensure_dir_exists(const std::string &dir) {
+    struct stat st;
+    if (stat(dir.c_str(), &st) == 0) {
+        return S_ISDIR(st.st_mode);
+    }
+    // create each component
+    std::string cur;
+    for (size_t i = 0; i < dir.size(); ++i) {
+        cur.push_back(dir[i]);
+        if (dir[i] == '/' || i + 1 == dir.size()) {
+            std::string sub = cur;
+            if (sub.size() > 1 && sub.back() == '/') sub.pop_back();
+            if (sub.empty()) continue;
+            if (stat(sub.c_str(), &st) == 0) continue;
+            if (mkdir(sub.c_str(), 0755) != 0 && errno != EEXIST) {
+                std::cerr << "[ensure_dir_exists] mkdir failed for " << sub << " errno=" << errno << "\n";
+                return false;
+            }
+        }
+    }
+    return stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+/****************************************************************************/
+
+
 /**
  * @brief 接收到0x05EF
  * 
@@ -539,8 +586,35 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     strftime(time_str, sizeof(time_str), "%Y%m%d-%H%M%S", local_time);
     sprintf(filename,"channel_%d-%s.jpg",channelNo,time_str);
     //写入图片
-    SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
+    /****************************************************************************/
+    // SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
     // mv_sleep(250);//延时保证图片可以顺利读取
+    // 构造保存目录：<exe_dir>/web/uploads
+    std::string exe_dir = get_exe_dir(); // 可执行文件所在目录
+    std::string upload_dir = exe_dir + "/web/uploads";
+
+    // 确保目录存在
+    if (!ensure_dir_exists(upload_dir)) {
+        fprintf(stderr, "[RecvFileHandler] 无法确保目录存在: %s\n", upload_dir.c_str());
+    } else {
+        // 目标文件完整路径
+        std::string fullpath = upload_dir + "/" + std::string(filename);
+
+        // debug
+        printf("[RecvFileHandler] saving image to: %s (size=%d)\n", fullpath.c_str(), PhotoFileSize);
+
+        // 以二进制方式写入文件
+        std::ofstream ofs(fullpath, std::ios::binary);
+        if (!ofs) {
+            fprintf(stderr, "[RecvFileHandler] 写文件失败: %s, errno=%d\n", fullpath.c_str(), errno);
+        } else {
+            ofs.write(reinterpret_cast<const char*>(pPhotoBuffer), (std::streamsize)PhotoFileSize);
+            ofs.close();
+        }
+    }
+
+
+    /****************************************************************************/
     if(GetImageName != nullptr) 
     {
         GetImageName(filename, channelNo);
