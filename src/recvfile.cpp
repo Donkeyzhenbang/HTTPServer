@@ -21,10 +21,11 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "../inc/sendfile.h"
-#include "../inc/heartbeat.h"
-#include "../inc/recvfile.h"
-#include "../inc/utils.h"
+#include "sendfile.h"
+#include "heartbeat.h"
+#include "recvfile.h"
+#include "connection.h"
+#include "utils.h"
 using namespace std;
 static unsigned char buffer[1024] = {};
 /**
@@ -70,9 +71,6 @@ struct __attribute__((packed)) ProtocolB351{
 static int SampleHander(unsigned char* pBuffer, int Length, int fd);
 static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd);
 
-std::function<int(std::string, int)> GetImageName = nullptr;
-std::function<int(int)> ManualSendCommand = nullptr;//传入参数一int socket 传入参数二int channelNo
-
 
 /**
  * @brief 回调函数结构体
@@ -93,70 +91,6 @@ struct HandlerFun Handlers [] = {
     {.frameType = 0x06, .packetType = 0xEF, NULL},
     {.frameType = 0x05, .packetType = 0xEF, RecvFileHandler} //这里开始处理接收图片
 };
-
-/**
- * @brief 定义接收队列需要加锁：read线程一直在push；主线程在pop
- * 
- */
-class MyQueue{
-    queue<unsigned char> que;
-    pthread_spinlock_t spin;//定义自旋锁
-public:
-    MyQueue() {
-        pthread_spin_init(&spin, PTHREAD_PROCESS_PRIVATE);
-    }
-    ~MyQueue() {
-        pthread_spin_destroy(&spin);
-    }
-    size_t size(void) {
-        size_t size = 0;
-        pthread_spin_lock(&spin);
-        size = que.size();
-        pthread_spin_unlock(&spin);
-        return size;
-    }
-    void push(const unsigned char &__x) {
-        pthread_spin_lock(&spin);
-        que.push(__x);
-        pthread_spin_unlock(&spin);
-    }
-    void pop() {
-        pthread_spin_lock(&spin);
-        que.pop();
-        pthread_spin_unlock(&spin);
-    }
-    unsigned char front() {
-        unsigned char x = 0;
-        pthread_spin_lock(&spin);
-        x = que.front();
-        pthread_spin_unlock(&spin);
-        return x;
-    }
-};
-
-/**
- * @brief 连接上下文，包含每个连接的队列和线程信息
- * 
- */
-struct ConnectionContext {
-    std::unique_ptr<MyQueue> queue;
-    pthread_t read_thread;
-    int connfd;
-    
-    ConnectionContext(int fd) : connfd(fd) {
-        queue = std::make_unique<MyQueue>();
-    }
-    
-    ~ConnectionContext() {
-        // 确保线程被取消
-        if (read_thread) {
-            pthread_cancel(read_thread);
-        }
-    }
-};
-
-// 全局连接管理器，使用文件描述符作为key
-static std::unordered_map<int, std::unique_ptr<ConnectionContext>> connection_manager;
 
 /**
  * @brief 获取连接的队列
@@ -199,32 +133,32 @@ static void remove_connection_context(int fd) {
  * @param fd 
  * @return int 
  */
-int waitForHeartBeat(int fd) 
-{
-    int len = read(fd,buffer,1024);
-    if(len < 0) {
-        //出错
-        printf("Heart Socket Read出错\n");
-        exit(EXIT_FAILURE);
-        // return -1;
-    }
-    int ret;
-    if((ret = CheckFrameFull(buffer, len))<0) {
-        printf("帧解析出错，不完整，错误码%d\n",ret);
-        deBugFrame(buffer,len);
-        exit(EXIT_FAILURE);
-        // return -1;
-    }
-    u_int8 frameType,packetType;
-    getFramePacketType(buffer, &frameType, &packetType);
-    if(frameType == 0x09 && packetType == 0xE6) {
-        printf("接收到心跳协议\n");
-        deBugFrame(buffer,len);
-        return 0;
-    }
-    printf("收到其他包，没有收到心跳协议\n");
-    return -2;
-}
+// int waitForHeartBeat(int fd) 
+// {
+//     int len = read(fd,buffer,1024);
+//     if(len < 0) {
+//         //出错
+//         printf("Heart Socket Read出错\n");
+//         exit(EXIT_FAILURE);
+//         // return -1;
+//     }
+//     int ret;
+//     if((ret = CheckFrameFull(buffer, len))<0) {
+//         printf("帧解析出错，不完整，错误码%d\n",ret);
+//         deBugFrame(buffer,len);
+//         exit(EXIT_FAILURE);
+//         // return -1;
+//     }
+//     u_int8 frameType,packetType;
+//     getFramePacketType(buffer, &frameType, &packetType);
+//     if(frameType == 0x09 && packetType == 0xE6) {
+//         printf("接收到心跳协议\n");
+//         deBugFrame(buffer,len);
+//         return 0;
+//     }
+//     printf("收到其他包，没有收到心跳协议\n");
+//     return -2;
+// }
 
 /**
  * @brief 等待B342协议
@@ -615,11 +549,6 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
 
 
     /****************************************************************************/
-    if(GetImageName != nullptr) 
-    {
-        GetImageName(filename, channelNo);
-        // std::cout << "获取图片名称 \t" << "通道号 " << channelNo << std::endl;
-    }
     SendProtocolB38(fd);
     printf("图片大小 %d, 已发送B38 \n", PhotoFileSize);
     //结束
@@ -647,6 +576,7 @@ void *HandleClient(void *arg) {
     int times = 0;
     printf("新客户端线程启动...\n");
     waitForHeartBeat(connfd);
+    printf("接收心跳完毕");
     SendHeartbeat(connfd);
     printf("已发送心跳协议 \n");
     mv_sleep(200);
@@ -688,62 +618,3 @@ void *HandleClient(void *arg) {
     pthread_exit(NULL);
 }
 
-//!std::function<int(int, int)> ManualSendCommand = nullptr;//int socket, int channelNo
-void *HandleMCU(void *arg) {
-    int connfd = *(int *)arg;
-    free(arg);  // 释放动态分配的内存
-    int times = 0;
-    printf("1037端口新客户端线程启动...\n");
-    waitForHeartBeat(connfd);
-    SendHeartbeat(connfd);
-    printf("已发送心跳协议 \n");
-    int channel = 6;
-    if(ManualSendCommand == nullptr){
-        sleep(3);
-        std::cout << "请输入所选择的通道号 \n";
-        std::cin >> channel;
-        int ret_b341 = SendProtocolB341(connfd, channel); //!后面可能需要对B342进行解析
-        if(ret_b341 == -1){
-            close(connfd);
-            printf("ret_b341 == -1, 1037端口客户端线程结束...\n");
-            pthread_exit(NULL);
-            return (void*)0;
-        }
-        printf("已向STM32发送B341协议 \r\n");
-        waitForB342(connfd);
-    }
-    else{
-        channel = ManualSendCommand(channel);
-        std::cout << "==========" << "QT已执行完回调函数" << "通道号为 " << channel  << "===============================" << std::endl;
-        int ret_b341 = SendProtocolB341(connfd, channel); //!后面可能需要对B342进行解析
-        if(ret_b341 == -1){
-            close(connfd);
-            printf("ret_b341 == -1, 1037端口客户端线程结束...\n");
-            pthread_exit(NULL);
-            return (void*)0;
-        }
-        printf("QT已向STM32发送B341协议 \r\n");
-        waitForB342(connfd);
-    }
-    
-    while (1) {
-        char buf[1024];
-        ssize_t read_bytes = read(connfd, buf, sizeof(buf));
-        if(read_bytes > 0){
-            printf("message from server : %s \n", buf);
-        }        
-        else if(read_bytes == 0){
-            printf("read_bytes == 0 server socket disconnected ! \n" );
-            break;
-        }
-        else if(read_bytes == -1){
-            printf("read_bytes == -1 server socket disconnected ! \n" );
-            break;
-        }
-    }
-    // pthread_cancel(heart_thread);
-    close(connfd);
-    printf("1037端口客户端线程结束...\n");
-    pthread_exit(NULL);
-    return (void*)0;
-}

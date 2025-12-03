@@ -1,11 +1,16 @@
 #include <iostream>
+#include <cstdio>
 #include <cstring>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>  //用于 IP 地址处理和端口号等网络编程功能
 #include <chrono>
-#include "../inc/utils.h"
-#include "../inc/heartbeat.h"
+#include <memory>
+#include <mutex>
+#include "utils.h"
+#include "heartbeat.h"
+#include "connection.h"
 
 #define CMD_ID "10370000123456789"  // CMD_ID，17位编码
 
@@ -46,15 +51,7 @@ void HeartbeatFrameInit(HeartbeatFrame &frameData)
     }; 
     //cmdId填充
     memcpy(frameData.cmdId, CMD_ID,sizeof(frameData.cmdId)); 
-    //clocktimeStamp的填充
-    // auto now = std::chrono::system_clock::now();// 使用chrono库获取当前时间
-    // auto duration_since_epoch = now.time_since_epoch();// 计算自Unix纪元以来的时间
-    // auto seconds_since_epoch = std::chrono::duration_cast<std::chrono::seconds>(duration_since_epoch).count();// 转换duration为秒（如果duration不是秒，则使用duration_cast转换）
-    // frameData.clocktimeStamp = static_cast<uint32_t>(seconds_since_epoch);// 将秒数转换为quint32类型
-    //CRC16的填充
-    // uintptr_t startAddr = reinterpret_cast<uintptr_t>(&frameData.packetLength), endAddr = reinterpret_cast<uintptr_t>(&frameData.CRC16);
     frameData.CRC16 = GetCheckCRC16((unsigned char *)(&frameData.packetLength),sizeof(frameData)-5);
-    // frameData.CRC16 = GetCheckCRC16((unsigned char *)(&frameData.packetLength),(endAddr-startAddr));
 }
 /**
  * @brief 
@@ -74,5 +71,118 @@ int SendHeartbeat(int socket)
 }
 
 
+/**
+ * @brief 等待心跳包协议并处理设备ID注册
+ * 
+ * @param fd 连接的文件描述符
+ * @return int 0: 成功接收到心跳包并注册设备ID
+ *             -1: 连接断开或读取错误
+ *             -2: 收到其他包或协议错误
+ */
+int waitForHeartBeat(int fd) 
+{
+    unsigned char buffer[1024];
+    int len = read(fd, buffer, sizeof(buffer));
+    
+    if (len <= 0) {
+        if (len == 0) {
+            // 连接正常关闭
+            std::cout << "[心跳处理] 连接正常关闭: fd=" << fd << std::endl;
+        } else {
+            // 读取错误
+            printf("Heart Socket Read出错: fd=%d\n", fd);
+        }
+        
+        // 从连接管理器中移除连接
+        {
+            std::lock_guard<std::mutex> lock(connection_manager_mutex);
+            auto it = connection_manager.find(fd);
+            if (it != connection_manager.end()) {
+                std::string device_id = it->second->getDeviceId();
+                std::cout << "[心跳处理] 移除连接: fd=" << fd 
+                          << ", 设备ID=" << (device_id.empty() ? "未知" : device_id) 
+                          << ", 剩余连接数: " << (connection_manager.size() - 1) << std::endl;
+                connection_manager.erase(it);
+            }
+        }
+        
+        close(fd);
+        return -1;
+    }
+    
+    int ret;
+    if ((ret = CheckFrameFull(buffer, len)) < 0) {
+        printf("帧解析出错，不完整，错误码%d\n", ret);
+        deBugFrame(buffer, len);
+        return -2;
+    }
+    
+    u_int8 frameType, packetType;
+    getFramePacketType(buffer, &frameType, &packetType);
+    
+    if (frameType == 0x09 && packetType == 0xE6) {
+        // 解析心跳帧
+        HeartbeatFrame* heartbeat_frame = reinterpret_cast<HeartbeatFrame*>(buffer);
+        
+        // 检查同步头（网络字节序转换）
+        u_int16 sync = ntohs(heartbeat_frame->sync);
+        if (sync != 0xA55A) {
+            printf("无效的同步头: 0x%04X\n", sync);
+            return -2;
+        }
+        
+        // 获取设备ID
+        char device_id[18] = {0};
+        memcpy(device_id, heartbeat_frame->cmdId, 17);
+        device_id[17] = '\0'; // 确保以null结尾
+        
+        printf("接收到心跳协议: fd=%d, 设备ID=%s\n", fd, device_id);
+        
+        // 注册设备ID到连接管理器
+        {
+            std::lock_guard<std::mutex> lock(connection_manager_mutex);
+            auto it = connection_manager.find(fd);
+            if (it != connection_manager.end()) {
+                // 连接已存在，更新设备ID
+                it->second->setDeviceId(device_id);
+                
+                // 直接计算已注册设备数（避免再次调用可能获取锁的函数）
+                int registered_count = 0;
+                for (const auto& pair : connection_manager) {
+                    if (pair.second->hasDeviceId()) {
+                        registered_count++;
+                    }
+                }
+                
+                std::cout << "[心跳处理] 设备注册成功: fd=" << fd 
+                          << ", 设备ID=" << device_id 
+                          << ", 当前已注册设备数: " << registered_count << std::endl;
+            } else {
+                // 连接不存在，先创建连接上下文
+                std::cout << "[心跳处理] 警告: 连接未在管理器中，先创建: fd=" << fd << std::endl;
+                connection_manager[fd] = std::make_unique<ConnectionContext>(fd);
+                connection_manager[fd]->setDeviceId(device_id);
+                
+                // 直接计算已注册设备数
+                int registered_count = 0;
+                for (const auto& pair : connection_manager) {
+                    if (pair.second->hasDeviceId()) {
+                        registered_count++;
+                    }
+                }
+                
+                std::cout << "[心跳处理] 新设备注册成功: fd=" << fd 
+                          << ", 设备ID=" << device_id 
+                          << ", 当前已注册设备数: " << registered_count << std::endl;
+            }
+        }
+        
+        deBugFrame(buffer, len);
+        return 0;
+    }
+    
+    printf("收到其他包，没有收到心跳协议\n");
+    return -2;
+}
 
 

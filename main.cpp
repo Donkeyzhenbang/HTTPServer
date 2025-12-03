@@ -109,18 +109,15 @@ static void* http_thread(void*) {
 }
 
 int main(void) {
-    int sockfd, sockfd_mcu;
-    struct sockaddr_in server_addr = {}, server_addr_mcu = {};
+    int sockfd;
+    struct sockaddr_in server_addr = {};
     initialize_server(&sockfd, &server_addr, SERVER_PORT);
-    initialize_server(&sockfd_mcu, &server_addr_mcu, MCU_PORT);
-
 
 
     pthread_t tid1;
     if (pthread_create(&tid1, NULL, wait_for_client, (void*)&sockfd) != 0) {
         perror("pthread_create wait_for_client failed");
         close(sockfd);
-        close(sockfd_mcu);
         return 1;
     }
 
@@ -130,6 +127,5 @@ int main(void) {
     pthread_join(tid1, NULL);
 
     close(sockfd);
-    close(sockfd_mcu);
     return 0;
 }

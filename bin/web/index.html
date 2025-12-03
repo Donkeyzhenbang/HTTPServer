@@ -1,4 +1,4 @@
-<!-- index.html -->
+<!-- index.html
 <!doctype html>
 <html>
 <head>
@@ -141,6 +141,422 @@ loadDevices();
 loadImages();
 // 每 3 秒刷新设备列表
 setInterval(loadDevices, 3000);
+</script>
+</body>
+</html> -->
+
+<!-- web/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>设备管理与摄像头展示</title>
+  <style>
+    body { background:#061d22; color:#c7f7f7; font-family: Arial, sans-serif; margin:0; padding:20px; }
+    .top { display:flex; gap:20px; align-items:flex-start; margin-bottom: 30px; }
+    .upload-box { background:#07363b; padding:15px; border-radius:8px; min-width: 300px; }
+    input[type=file] { color:#fff; margin-bottom: 10px; }
+    .gallery { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; }
+    .thumb { width:160px; height:90px; overflow:hidden; border-radius:6px; background:#000; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid rgba(0,255,220,0.08); }
+    .thumb img { max-width:100%; max-height:100%; }
+    .viewer { margin-top:20px; border:2px solid #0f8b8f; padding:6px; border-radius:6px; width:900px; height:500px; background:#021212; display:flex; align-items:center; justify-content:center; }
+    .device-panel { min-width:320px; background:#022b2f; padding:15px; border-radius:8px; border: 1px solid #024; }
+    .device-panel h3 { margin-top: 0; color: #06b3b0; border-bottom: 1px solid #024; padding-bottom: 10px; }
+    .device { padding:12px; border-bottom:1px dashed #024; display:flex; justify-content:space-between; align-items:center; transition: background 0.3s; }
+    .device:hover { background: rgba(6, 179, 176, 0.1); }
+    .btn { background:linear-gradient(#06b3b0,#028b86); color:#021212; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight: bold; transition: all 0.3s; }
+    .btn:hover { background:linear-gradient(#07d4d0,#06b3b0); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .btn:disabled { background:#555; color:#888; cursor: not-allowed; transform: none; box-shadow: none; }
+    .small { padding:6px 10px; font-size:0.9em; }
+    .muted { color:#a8eae6; font-size:0.9em; }
+    .status-badge { background:#028b86; color:#021212; padding:2px 8px; border-radius:12px; font-size:0.8em; font-weight: bold; margin-left: 8px; }
+    .status-badge.unregistered { background:#555; color:#ddd; }
+    .refresh-btn { background: #024; color: #a8eae6; border: 1px solid #06b3b0; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+    .refresh-btn:hover { background: #06b3b0; color: #021212; }
+    .stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>设备管理与摄像头展示</h1>
+  
+  <div class="top">
+    <!-- 左侧：图片上传 -->
+    <div class="upload-box">
+      <h3>图片上传</h3>
+      <form id="uploadForm">
+        <input id="fileInput" type="file" name="image" accept="image/*" />
+        <button type="submit" class="btn small">上传图片</button>
+      </form>
+      <div id="uploadResult" class="muted"></div>
+    </div>
+    
+    <!-- 右侧：设备管理 -->
+    <div class="device-panel" id="deviceList">
+      <div class="stats-header">
+        <h3>设备管理</h3>
+        <div>
+          <button id="refreshDevices" class="refresh-btn">刷新</button>
+          <button id="testAddConnection" class="refresh-btn" title="添加测试连接">+ 测试</button>
+        </div>
+      </div>
+      <div id="devicesContainer">
+        <div class="muted">正在加载设备列表...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewer" class="viewer">
+    <div style="color: #a8eae6; font-size: 1.1em;">大图预览区域（点击下方缩略图）</div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+    <h3>图片库</h3>
+    <button id="refreshImages" class="refresh-btn">刷新图片</button>
+  </div>
+  <div id="gallery" class="gallery"></div>
+
+<script>
+// 全局变量
+let refreshInterval;
+
+// 获取JSON数据
+async function fetchJSON(url, opts = {}) { 
+    const r = await fetch(url, opts); 
+    return r.json(); 
+}
+
+// 加载连接统计信息
+async function loadConnectionStats() {
+    try {
+        const data = await fetchJSON('/api/connections');
+        
+        // 更新页面标题显示连接数
+        document.title = `设备管理 (${data.total_connections} 连接)`;
+        
+        // 可以在这里更新全局的连接统计显示
+        console.log('连接统计:', data);
+    } catch(e) {
+        console.error('加载连接统计失败:', e);
+    }
+}
+
+// 加载设备列表
+async function loadDevices() {
+    try {
+        const data = await fetchJSON('/api/devices');
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '';
+        
+        if (!data.devices || data.devices.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'device';
+            emptyMsg.innerHTML = `
+                <div style="text-align: center; width: 100%;">
+                    <div class="muted">当前无已注册设备</div>
+                    <div style="font-size: 0.8em; color: #7ab7b5; margin-top: 5px;">
+                        总连接数: ${data.connections}
+                    </div>
+                </div>
+            `;
+            c.appendChild(emptyMsg);
+            return;
+        }
+        
+        // 显示统计信息
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'device';
+        statsDiv.style.background = 'rgba(2, 52, 58, 0.5)';
+        statsDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; width: 100%;">
+                <div>
+                    <strong>已注册设备:</strong> <span style="color: #06b3b0;">${data.devices.length}</span>
+                </div>
+                <div>
+                    <strong>总连接数:</strong> <span style="color: #06b3b0;">${data.connections}</span>
+                </div>
+            </div>
+        `;
+        c.appendChild(statsDiv);
+        
+        // 显示每个设备
+        data.devices.forEach(dev => {
+            const div = document.createElement('div');
+            div.className = 'device';
+            
+            const left = document.createElement('div');
+            left.innerHTML = `
+                <div style="display: flex; align-items: center;">
+                    <strong>${dev}</strong>
+                    <span class="status-badge">已注册</span>
+                </div>
+                <div style="font-size: 0.8em; color: #7ab7b5; margin-top: 4px;">
+                    设备ID: ${dev}
+                </div>
+            `;
+            
+            const right = document.createElement('div');
+            const btn1 = document.createElement('button');
+            btn1.className = 'btn small';
+            btn1.innerHTML = '<span style="font-size: 0.9em;">📷 要图</span>';
+            btn1.title = '请求通道1的快照';
+            
+            btn1.onclick = async () => {
+                btn1.disabled = true;
+                btn1.innerHTML = '<span style="font-size: 0.9em;">⏳ 发送中...</span>';
+                
+                try {
+                    const resp = await fetch('/api/request_snapshot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ device: dev, channel: 1 })
+                    });
+                    
+                    const j = await resp.json();
+                    if (j.ok) {
+                        showNotification(`已向设备 ${dev} 发送要图指令`, 'success');
+                    } else {
+                        showNotification(`发送失败: ${j.error || '未知错误'}`, 'error');
+                    }
+                } catch(e) {
+                    showNotification(`请求失败: ${e.message}`, 'error');
+                    console.error(e);
+                } finally {
+                    btn1.disabled = false;
+                    btn1.innerHTML = '<span style="font-size: 0.9em;">📷 要图</span>';
+                }
+            };
+            
+            right.appendChild(btn1);
+            div.appendChild(left);
+            div.appendChild(right);
+            c.appendChild(div);
+        });
+        
+    } catch(e) {
+        console.error('加载设备列表失败:', e);
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '<div class="muted" style="color: #ff6b6b;">加载设备列表失败，请检查服务器连接</div>';
+    }
+}
+
+// 加载图片
+async function loadImages() {
+    try {
+        const arr = await fetchJSON('/api/images');
+        const g = document.getElementById('gallery');
+        g.innerHTML = '';
+        
+        if (!arr || arr.length === 0) {
+            g.innerHTML = '<div class="muted" style="width: 100%; text-align: center; padding: 40px;">暂无图片，请上传图片</div>';
+            return;
+        }
+        
+        arr.forEach(name => {
+            const wrapper = document.createElement('div');
+            wrapper.style.width = '172px';
+            wrapper.style.marginBottom = '15px';
+            
+            const th = document.createElement('div');
+            th.className = 'thumb';
+            
+            const img = document.createElement('img');
+            img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+            img.alt = name;
+            img.loading = 'lazy';
+            
+            th.appendChild(img);
+            
+            // 点击预览大图
+            th.onclick = () => {
+                const viewer = document.getElementById('viewer');
+                viewer.innerHTML = '';
+                const big = document.createElement('img');
+                big.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+                big.style.maxWidth = '100%';
+                big.style.maxHeight = '100%';
+                big.style.borderRadius = '4px';
+                viewer.appendChild(big);
+            };
+            
+            // 图片信息
+            const caption = document.createElement('div');
+            caption.className = 'muted';
+            caption.style.fontSize = '0.8em';
+            caption.style.marginTop = '6px';
+            caption.style.overflow = 'hidden';
+            caption.style.textOverflow = 'ellipsis';
+            caption.style.whiteSpace = 'nowrap';
+            caption.innerText = name;
+            
+            wrapper.appendChild(th);
+            wrapper.appendChild(caption);
+            g.appendChild(wrapper);
+        });
+    } catch(e) {
+        console.error('加载图片失败:', e);
+        const g = document.getElementById('gallery');
+        g.innerHTML = '<div class="muted" style="color: #ff6b6b;">加载图片失败</div>';
+    }
+}
+
+// 显示通知
+function showNotification(message, type = 'info') {
+    // 移除现有的通知
+    const existing = document.getElementById('notification');
+    if (existing) existing.remove();
+    
+    const notification = document.createElement('div');
+    notification.id = 'notification';
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.padding = '15px 20px';
+    notification.style.borderRadius = '6px';
+    notification.style.color = '#021212';
+    notification.style.fontWeight = 'bold';
+    notification.style.zIndex = '1000';
+    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    notification.style.transition = 'all 0.3s';
+    
+    if (type === 'success') {
+        notification.style.background = 'linear-gradient(#06b3b0, #028b86)';
+    } else if (type === 'error') {
+        notification.style.background = 'linear-gradient(#ff6b6b, #e74c3c)';
+    } else {
+        notification.style.background = 'linear-gradient(#a8eae6, #7ab7b5)';
+    }
+    
+    notification.innerText = message;
+    document.body.appendChild(notification);
+    
+    // 3秒后自动移除
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100px)';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// 初始化页面
+async function init() {
+    try {
+        // 加载连接统计
+        await loadConnectionStats();
+        
+        // 加载设备列表
+        await loadDevices();
+        
+        // 加载图片
+        await loadImages();
+        
+        showNotification('页面加载完成', 'success');
+    } catch(e) {
+        console.error('初始化失败:', e);
+        showNotification('页面初始化失败: ' + e.message, 'error');
+    }
+}
+
+// 事件监听器
+document.addEventListener('DOMContentLoaded', () => {
+    // 上传表单
+    document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const f = document.getElementById('fileInput').files[0];
+        if (!f) { 
+            showNotification('请选择文件', 'error');
+            return; 
+        }
+        
+        const fd = new FormData();
+        fd.append('image', f, f.name);
+        const resDiv = document.getElementById('uploadResult');
+        resDiv.innerText = '上传中...';
+        resDiv.style.color = '#a8eae6';
+        
+        try {
+            const resp = await fetch('/upload', { method: 'POST', body: fd });
+            const j = await resp.json();
+            if (j.ok) {
+                resDiv.innerText = '上传成功: ' + j.filename;
+                resDiv.style.color = '#06b3b0';
+                showNotification('图片上传成功', 'success');
+                await loadImages();
+            } else {
+                resDiv.innerText = '上传失败: ' + (j.error || '未知错误');
+                resDiv.style.color = '#ff6b6b';
+                showNotification('上传失败: ' + (j.error || '未知错误'), 'error');
+            }
+        } catch (e) {
+            resDiv.innerText = '上传异常: ' + e.message;
+            resDiv.style.color = '#ff6b6b';
+            showNotification('上传异常: ' + e.message, 'error');
+        }
+    });
+    
+    // 刷新设备按钮
+    document.getElementById('refreshDevices').addEventListener('click', async () => {
+        const btn = document.getElementById('refreshDevices');
+        btn.disabled = true;
+        btn.innerHTML = '刷新中...';
+        
+        await loadDevices();
+        await loadConnectionStats();
+        
+        btn.disabled = false;
+        btn.innerHTML = '刷新';
+        showNotification('设备列表已刷新', 'success');
+    });
+    
+    // 刷新图片按钮
+    document.getElementById('refreshImages').addEventListener('click', async () => {
+        const btn = document.getElementById('refreshImages');
+        btn.disabled = true;
+        btn.innerHTML = '刷新中...';
+        
+        await loadImages();
+        
+        btn.disabled = false;
+        btn.innerHTML = '刷新图片';
+        showNotification('图片库已刷新', 'success');
+    });
+    
+    // 测试添加连接按钮
+    document.getElementById('testAddConnection').addEventListener('click', async () => {
+        const btn = document.getElementById('testAddConnection');
+        btn.disabled = true;
+        btn.innerHTML = '添加中...';
+        
+        try {
+            const data = await fetchJSON('/api/test/add_connection');
+            showNotification(`添加测试连接成功 (fd: ${data.fd})`, 'success');
+            
+            // 刷新设备列表
+            await loadDevices();
+            await loadConnectionStats();
+        } catch(e) {
+            showNotification('添加测试连接失败: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '+ 测试';
+        }
+    });
+    
+    // 设置定时刷新（每5秒）
+    refreshInterval = setInterval(async () => {
+        await loadDevices();
+        await loadConnectionStats();
+    }, 5000);
+    
+    // 初始化页面
+    init();
+});
+
+// 页面卸载时清理定时器
+window.addEventListener('beforeunload', () => {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
 </script>
 </body>
 </html>

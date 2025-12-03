@@ -4,7 +4,7 @@ CXXFLAGS :=  -w -I./inc
 LDFLAGS := -lpthread 
 
 # 定义编译器
-CXX = g++ -std=c++14 -g
+CXX = g++ -std=c++17 -g
 
 # 定义源文件和目标文件
 SRC = main.cpp 
