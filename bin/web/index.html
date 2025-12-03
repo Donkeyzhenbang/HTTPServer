@@ -1,562 +1,679 @@
-<!-- index.html
 <!doctype html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <title>要图示例 - 摄像头展示</title>
+  <title>输电全景管控平台</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { background:#061d22; color:#c7f7f7; font-family: Arial, sans-serif; margin:0; padding:20px; }
-    .top { display:flex; gap:20px; align-items:center; }
-    .upload-box { background:#07363b; padding:12px; border-radius:8px; }
-    input[type=file] { color:#fff; }
-    .gallery { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; }
-    .thumb { width:160px; height:90px; overflow:hidden; border-radius:6px; background:#000; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid rgba(0,255,220,0.08); }
-    .thumb img { max-width:100%; max-height:100%; }
-    .viewer { margin-top:20px; border:2px solid #0f8b8f; padding:6px; border-radius:6px; width:900px; height:500px; background:#021212; display:flex; align-items:center; justify-content:center; }
-    .device-list { margin-left:40px; min-width:240px; background:#022b2f; padding:12px; border-radius:8px; }
-    .device { padding:8px; border-bottom:1px dashed #024; display:flex; justify-content:space-between; align-items:center; }
-    .btn { background:linear-gradient(#06b3b0,#028b86); color:#021212; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
-    .small { padding:4px 8px; font-size:0.9em; }
-    .muted { color:#a8eae6; font-size:0.9em; }
+    :root{
+      --bg: #031416;
+      --panel: rgba(3,37,38,0.6);
+      --accent: #06b3b0;
+      --accent-2: #07d4d0;
+      --muted: #bfeee9;
+      --card-radius: 10px;
+      --topbar-h: 64px;
+      --gap: 12px;
+      --thumb-group-size: 5;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;padding:0;font-family:"Inter", Arial, sans-serif;-webkit-font-smoothing:antialiased}
+    body{
+      background:
+        radial-gradient(900px 240px at 10% 8%, rgba(6,179,176,0.03), transparent 9%),
+        linear-gradient(180deg, rgba(0,8,10,0.62), rgba(0,6,8,0.96)),
+        var(--bg);
+      color:var(--muted);
+      overflow:hidden;
+    }
+
+    /* topbar */
+    .topbar{
+      height: var(--topbar-h);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(6,179,176,0.06);
+      background: linear-gradient(180deg, rgba(2,18,20,0.5), rgba(2,12,14,0.2));
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+      z-index:50;
+    }
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{width:46px;height:46px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#021212;font-weight:800;box-shadow:0 8px 26px rgba(6,179,176,0.08)}
+    .title{font-size:18px;color:var(--accent);font-weight:700}
+    .subtitle{font-size:12px;color:rgba(191,238,233,0.7)}
+
+    .nav-tabs{display:flex;gap:8px}
+    .nav-tabs button{background:transparent;border:0;color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;transition:all .15s}
+    .nav-tabs button.active{background:linear-gradient(90deg, rgba(6,179,176,0.12), rgba(6,179,176,0.06));color:var(--accent);box-shadow:0 6px 18px rgba(6,179,176,0.06)}
+
+    /* layout fills remaining height */
+    .main {
+      display:grid;
+      grid-template-columns: 320px 1fr 300px;
+      grid-template-rows: calc(100vh - var(--topbar-h));
+      gap: var(--gap);
+      padding: 12px;
+      height: calc(100vh - var(--topbar-h));
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(3,28,29,0.46), rgba(2,18,20,0.28));
+      border-radius: var(--card-radius);
+      padding: 14px;
+      border:1px solid rgba(6,179,176,0.06);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+
+    /* left */
+    .left-panel{ display:flex; flex-direction:column; gap:12px; min-height:0; }
+    .left-panel h3{margin:0;color:var(--accent);font-weight:700}
+    .upload-box{background:rgba(0,0,0,0.06);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+    input[type=file]{width:100%;padding:8px;border-radius:6px;background: rgba(255,255,255,0.02);color:var(--muted);border:none;outline:none;cursor:pointer}
+    .device-list{overflow:auto;padding-right:6px}
+    .device{display:flex;justify-content:space-between;align-items:flex-start;padding:10px;border-radius:8px;margin-bottom:10px;background:linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
+    .device strong{color:#fff}
+    .device .meta{font-size:12px;color:#7ab7b5;margin-top:6px}
+
+    /* center */
+    .center{ display:flex; flex-direction:column; gap:12px; min-height:0; }
+    .viewer-wrap{
+      flex:1 1 auto;
+      border-radius:10px;
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+      border:1px solid rgba(6,179,176,0.06);
+    }
+    .viewer-inner{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative; touch-action:none; background: linear-gradient(180deg, rgba(2,10,10,0.05), transparent); }
+    .viewer-inner img{ max-width:100%; max-height:100%; transition:transform .16s ease; user-select:none; -webkit-user-drag:none; will-change:transform; border-radius:6px; box-shadow: 0 14px 48px rgba(0,0,0,0.6) }
+
+    .viewer-overlay{ position:absolute; left:16px; top:14px; z-index:40; background:rgba(0,0,0,0.24); padding:6px 10px;border-radius:6px;color:#fff;font-size:12px;border:1px solid rgba(255,255,255,0.03);backdrop-filter: blur(6px) }
+    .viewer-watermark{ position:absolute; right:16px; bottom:14px; z-index:40; font-size:12px; color:rgba(255,255,255,0.5); background: linear-gradient(90deg, rgba(0,0,0,0.12), rgba(0,0,0,0.06)); padding:4px 8px; border-radius:6px }
+
+    .arrow{ position:absolute; top:50%; transform:translateY(-50%); z-index:50; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.03); cursor:pointer; color:var(--muted); font-weight:700; transition: transform .12s, background .12s }
+    .arrow:hover{ transform:translateY(-50%) scale(1.06); background: rgba(6,179,176,0.08); color:var(--accent) }
+    .arrow.left{ left: 14px } .arrow.right{ right:14px }
+
+    /* thumbnail strip: will render groups of 5 */
+    .thumb-strip{ height:106px; display:flex; gap:10px; align-items:center; padding:8px; overflow:hidden; background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01)); border-radius:8px; position:relative}
+    .thumb-window{ display:flex; gap:10px; transition: transform .28s cubic-bezier(.2,.9,.2,1); will-change:transform; }
+    .thumb-item{ width:160px; height:90px; flex: 0 0 160px; border-radius:8px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.02); cursor:pointer; transition: transform .12s, box-shadow .12s }
+    .thumb-item img{ width:100%; height:100%; object-fit:cover; display:block }
+    .thumb-item.active{ border:2px solid var(--accent); transform: translateY(-6px); box-shadow: 0 18px 48px rgba(6,179,176,0.08) }
+    .thumb-caption{ position:absolute; left:8px; bottom:8px; font-size:11px; color:#fff; background:rgba(0,0,0,0.32); padding:4px 6px; border-radius:4px }
+
+    /* group nav small arrows on sides of strip */
+    .strip-arrow{ position:absolute; top:50%; transform:translateY(-50%); width:34px;height:34px;border-radius:6px;background:rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;border:1px solid rgba(255,255,255,0.02); }
+    .strip-arrow:hover{ background:rgba(6,179,176,0.06); color:var(--accent) }
+    .strip-arrow.left{ left:6px } .strip-arrow.right{ right:6px }
+
+    /* right panel */
+    .right-panel{ display:flex; flex-direction:column; gap:12px; min-height:0; }
+    .card-title{ color:var(--accent); font-weight:700; margin-bottom:6px }
+    .date-picker input{ width:100%; padding:10px; border-radius:8px; background: rgba(0,0,0,0.06); border:1px solid rgba(255,255,255,0.02); color:var(--muted) }
+    .ops{ display:flex; gap:8px; flex-wrap:wrap }
+    .ops button{ flex:1 1 48%; padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02); background:transparent; color:var(--muted); cursor:pointer; font-weight:700 }
+    .ops button.primary{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212; box-shadow:0 8px 26px rgba(6,179,176,0.08) }
+
+    .channels{ display:flex; gap:8px; }
+    .channel-btn{ flex:1; padding:10px;border-radius:8px;background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02); cursor:pointer; color:var(--muted); font-weight:700 }
+    .channel-btn.active{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212 }
+
+    @media (max-width:1100px){
+      .main{ grid-template-columns: 300px 1fr; grid-template-rows: calc(100vh - var(--topbar-h) - 320px) 320px; }
+      .right-panel{ grid-column: 1 / -1; grid-row: 2 / 3; }
+    }
+    @media (max-width:820px){
+      .topbar{ padding:10px; flex-wrap:wrap; height:auto; gap:8px; align-items:flex-start }
+      .main{ grid-template-columns: 1fr; grid-template-rows: auto 340px auto; gap:10px }
+      .left-panel{ order:3 }
+      .center{ order:1 }
+      .right-panel{ order:2 }
+      .thumb-strip{ height:90px }
+      .viewer-wrap{ height:420px }
+    }
+
+    ::-webkit-scrollbar{ height:10px; width:10px }
+    ::-webkit-scrollbar-thumb{ background: rgba(6,179,176,0.12); border-radius:6px }
+    ::-webkit-scrollbar-track{ background: transparent }
   </style>
 </head>
 <body>
-  <h1>摄像头要图演示</h1>
-  <div class="top">
-    <div class="upload-box">
-      <form id="uploadForm">
-        <input id="fileInput" type="file" name="image" accept="image/*" />
-        <button type="submit" class="btn small">上传图片</button>
-      </form>
-      <div id="uploadResult" class="muted"></div>
+  <div class="topbar" role="navigation" aria-label="主导航">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">输</div>
+      <div>
+        <div class="title">输电全景管控平台</div>
+        <div class="subtitle">在线监控 · 全景要图 · 设备管理</div>
+      </div>
     </div>
 
-    <div class="device-list" id="deviceList">
-      <h3>已注册设备</h3>
-      <div id="devicesContainer"><div class="muted">正在加载...</div></div>
+    <div class="nav-tabs" role="tablist" aria-label="主功能导航">
+      <button class="active" data-tab="dashboard" role="tab">可视化看板</button>
+      <button data-tab="resources" role="tab">资源管理</button>
+      <button data-tab="stats" role="tab">查询统计</button>
+      <button data-tab="vendors" role="tab">厂商管理</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="refreshAll" class="nav-action" title="刷新全部" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer">刷新</button>
     </div>
   </div>
 
-  <div id="viewer" class="viewer">大图预览区域（点击缩略图）</div>
+  <div class="main">
+    <!-- left -->
+    <aside class="panel left-panel" aria-label="设备与上传">
+      <h3>设备管理</h3>
 
-  <h3>图片库</h3>
-  <div id="gallery" class="gallery"></div>
+      <div class="upload-box" aria-label="图片上传">
+        <form id="uploadForm">
+          <input id="fileInput" type="file" name="image" accept="image/*" aria-label="上传图片" />
+          <div style="height:8px"></div>
+          <button type="submit" class="btn small" style="width:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212; border:none; padding:10px; border-radius:8px; font-weight:700;">上传图片</button>
+        </form>
+        <div id="uploadResult" style="margin-top:8px;font-size:13px;color:var(--muted)"></div>
+      </div>
 
-<script>
-async function fetchJSON(url, opts){ const r = await fetch(url, opts); return r.json(); }
-
-async function loadDevices(){
-  try{
-    const arr = await fetch('/api/devices').then(r=>r.json());
-    const c = document.getElementById('devicesContainer');
-    c.innerHTML = '';
-    if (!arr || arr.length===0) { c.innerHTML = '<div class="muted">当前无设备连接</div>'; return; }
-    arr.forEach(dev=>{
-      const div = document.createElement('div'); div.className='device';
-      const left = document.createElement('div'); left.innerHTML = `<strong>${dev}</strong>`;
-      const right = document.createElement('div');
-      const btn1 = document.createElement('button'); btn1.className='btn small'; btn1.innerText='要图(通道1)';
-      btn1.onclick = async () => {
-        btn1.disabled = true;
-        try {
-          const resp = await fetch('/api/request_snapshot', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({device: dev, channel:1})
-          });
-          const j = await resp.json();
-          if (j.ok) alert('已下发要图指令');
-          else alert('发送失败: ' + (j.error||'unknown'));
-        } catch(e){ alert('请求失败: '+e); }
-        btn1.disabled = false;
-      };
-      right.appendChild(btn1);
-      div.appendChild(left);
-      div.appendChild(right);
-      c.appendChild(div);
-    });
-  } catch(e) {
-    console.error(e);
-  }
-}
-
-async function loadImages(){
-  try{
-    const arr = await fetch('/api/images').then(r=>r.json());
-    const g = document.getElementById('gallery');
-    g.innerHTML = '';
-    if (!arr || arr.length===0) { g.innerHTML = '<div class="muted">暂无图片</div>'; return; }
-    arr.forEach(name=>{
-      const th = document.createElement('div'); th.className='thumb';
-      const img = document.createElement('img');
-      // img.src = '/uploads?name=' + encodeURIComponent(name);
-      img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
-      img.alt = name;
-      th.appendChild(img);
-      th.onclick = () => {
-        const viewer = document.getElementById('viewer');
-        viewer.innerHTML = '';
-        const big = document.createElement('img');
-        // big.src = img.src;
-        big.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
-        big.style.maxWidth = '100%';
-        big.style.maxHeight = '100%';
-        viewer.appendChild(big);
-      };
-      // 小标题
-      const caption = document.createElement('div'); caption.className='muted'; caption.style.fontSize='0.8em'; caption.style.marginTop='6px';
-      caption.innerText = name;
-      const wrapper = document.createElement('div');
-      wrapper.appendChild(th);
-      wrapper.appendChild(caption);
-      g.appendChild(wrapper);
-    });
-  } catch(e) { console.error(e); }
-}
-
-document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const f = document.getElementById('fileInput').files[0];
-  if (!f) { alert('请选择文件'); return; }
-  const fd = new FormData();
-  fd.append('image', f, f.name);
-  const resDiv = document.getElementById('uploadResult');
-  resDiv.innerText = '上传中...';
-  try {
-    const resp = await fetch('/upload', { method:'POST', body: fd });
-    const j = await resp.json();
-    if (j.ok) {
-      resDiv.innerText = '上传成功: ' + j.filename;
-      await loadImages();
-    } else {
-      resDiv.innerText = '上传失败';
-    }
-  } catch (e) {
-    resDiv.innerText = '上传异常: ' + e;
-  }
-});
-
-// 初始化
-loadDevices();
-loadImages();
-// 每 3 秒刷新设备列表
-setInterval(loadDevices, 3000);
-</script>
-</body>
-</html> -->
-
-<!-- web/index.html -->
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>设备管理与摄像头展示</title>
-  <style>
-    body { background:#061d22; color:#c7f7f7; font-family: Arial, sans-serif; margin:0; padding:20px; }
-    .top { display:flex; gap:20px; align-items:flex-start; margin-bottom: 30px; }
-    .upload-box { background:#07363b; padding:15px; border-radius:8px; min-width: 300px; }
-    input[type=file] { color:#fff; margin-bottom: 10px; }
-    .gallery { margin-top:20px; display:flex; gap:12px; flex-wrap:wrap; }
-    .thumb { width:160px; height:90px; overflow:hidden; border-radius:6px; background:#000; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid rgba(0,255,220,0.08); }
-    .thumb img { max-width:100%; max-height:100%; }
-    .viewer { margin-top:20px; border:2px solid #0f8b8f; padding:6px; border-radius:6px; width:900px; height:500px; background:#021212; display:flex; align-items:center; justify-content:center; }
-    .device-panel { min-width:320px; background:#022b2f; padding:15px; border-radius:8px; border: 1px solid #024; }
-    .device-panel h3 { margin-top: 0; color: #06b3b0; border-bottom: 1px solid #024; padding-bottom: 10px; }
-    .device { padding:12px; border-bottom:1px dashed #024; display:flex; justify-content:space-between; align-items:center; transition: background 0.3s; }
-    .device:hover { background: rgba(6, 179, 176, 0.1); }
-    .btn { background:linear-gradient(#06b3b0,#028b86); color:#021212; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight: bold; transition: all 0.3s; }
-    .btn:hover { background:linear-gradient(#07d4d0,#06b3b0); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    .btn:disabled { background:#555; color:#888; cursor: not-allowed; transform: none; box-shadow: none; }
-    .small { padding:6px 10px; font-size:0.9em; }
-    .muted { color:#a8eae6; font-size:0.9em; }
-    .status-badge { background:#028b86; color:#021212; padding:2px 8px; border-radius:12px; font-size:0.8em; font-weight: bold; margin-left: 8px; }
-    .status-badge.unregistered { background:#555; color:#ddd; }
-    .refresh-btn { background: #024; color: #a8eae6; border: 1px solid #06b3b0; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-    .refresh-btn:hover { background: #06b3b0; color: #021212; }
-    .stats-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  </style>
-</head>
-<body>
-  <h1>设备管理与摄像头展示</h1>
-  
-  <div class="top">
-    <!-- 左侧：图片上传 -->
-    <div class="upload-box">
-      <h3>图片上传</h3>
-      <form id="uploadForm">
-        <input id="fileInput" type="file" name="image" accept="image/*" />
-        <button type="submit" class="btn small">上传图片</button>
-      </form>
-      <div id="uploadResult" class="muted"></div>
-    </div>
-    
-    <!-- 右侧：设备管理 -->
-    <div class="device-panel" id="deviceList">
-      <div class="stats-header">
-        <h3>设备管理</h3>
-        <div>
-          <button id="refreshDevices" class="refresh-btn">刷新</button>
-          <button id="testAddConnection" class="refresh-btn" title="添加测试连接">+ 测试</button>
+      <div id="devicesContainer" class="device-list" aria-live="polite">
+        <div class="device">
+          <div style="width:100%;text-align:center;color:var(--muted)">正在加载设备列表...</div>
         </div>
       </div>
-      <div id="devicesContainer">
-        <div class="muted">正在加载设备列表...</div>
+    </aside>
+
+    <!-- center -->
+    <main class="panel center" aria-label="主视图">
+      <div class="viewer-wrap" id="viewerWrap" role="region" aria-label="图像展示区">
+        <div class="viewer-overlay" id="viewerOverlay">-- 时间戳 --</div>
+        <div class="viewer-inner" id="viewerInner" aria-live="polite" aria-label="大图展示">
+          <div style="color:var(--muted)">大图加载中...</div>
+        </div>
+        <div class="viewer-watermark">示例水印</div>
+
+        <div class="arrow left" id="prevBtn" aria-label="上一张">‹</div>
+        <div class="arrow right" id="nextBtn" aria-label="下一张">›</div>
       </div>
-    </div>
+
+      <div class="thumb-strip" id="thumbStrip" aria-label="缩略图时间轴">
+        <div class="strip-arrow left" id="stripPrev" aria-hidden="true">◂</div>
+        <div style="overflow:hidden; flex:1;">
+          <div class="thumb-window" id="thumbWindow" aria-hidden="false"></div>
+        </div>
+        <div class="strip-arrow right" id="stripNext" aria-hidden="true">▸</div>
+      </div>
+    </main>
+
+    <!-- right -->
+    <aside class="panel right-panel" aria-label="操作面板">
+      <div>
+        <div class="card-title">日期选择</div>
+        <div class="date-picker"><input id="datePicker" type="date" aria-label="选择日期" /></div>
+      </div>
+
+      <div>
+        <div class="card-title">操作项</div>
+        <div class="ops" role="group" aria-label="操作">
+          <button id="grabBtn" class="primary" style="padding:10px 12px;">抓图</button>
+          <button id="playbackBtn">回放</button>
+          <button id="downloadBtn">下载</button>
+          <button id="fullBtn">全屏</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card-title">监拍通道</div>
+        <div class="channels" role="tablist" aria-label="通道选择">
+          <button class="channel-btn active" data-channel="1">通道 1</button>
+          <button class="channel-btn" data-channel="2">通道 2</button>
+          <button class="channel-btn" data-channel="3">通道 3</button>
+          <button class="channel-btn" data-channel="4">通道 4</button>
+        </div>
+      </div>
+
+      <div style="margin-top:auto;font-size:12px;color:#7ab7b5">
+        快捷提示：缩略图点击切换主图；双击主图重置缩放；滚轮缩放；放大时可拖动平移。
+      </div>
+    </aside>
   </div>
 
-  <div id="viewer" class="viewer">
-    <div style="color: #a8eae6; font-size: 1.1em;">大图预览区域（点击下方缩略图）</div>
-  </div>
+  <script>
+    /************************************************************************
+     * 要点：
+     * - 缩略图按组显示：每组 5 张（可通过 --thumb-group-size 修改）。
+     * - 当主图索引跳转到不在当前缩略图组（向左或向右）时，会自动切换到包含该图片的组。
+     * - 不修改后端接口或后端逻辑（保留 /api/... 与 /uploads/... 的调用）。
+     ************************************************************************/
 
-  <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
-    <h3>图片库</h3>
-    <button id="refreshImages" class="refresh-btn">刷新图片</button>
-  </div>
-  <div id="gallery" class="gallery"></div>
+    let imagesList = [];
+    let currentIndex = -1;
+    let scale = 1;
+    let translate = {x:0,y:0};
+    let isPanning = false;
+    let panStart = {x:0,y:0};
+    let refreshInterval;
 
-<script>
-// 全局变量
-let refreshInterval;
+    // 缩略图组管理
+    const THUMB_GROUP_SIZE = 5;
+    let thumbGroupStart = 0; // 当前组起始索引（在 imagesList 中）
 
-// 获取JSON数据
-async function fetchJSON(url, opts = {}) { 
-    const r = await fetch(url, opts); 
-    return r.json(); 
-}
-
-// 加载连接统计信息
-async function loadConnectionStats() {
-    try {
-        const data = await fetchJSON('/api/connections');
-        
-        // 更新页面标题显示连接数
-        document.title = `设备管理 (${data.total_connections} 连接)`;
-        
-        // 可以在这里更新全局的连接统计显示
-        console.log('连接统计:', data);
-    } catch(e) {
-        console.error('加载连接统计失败:', e);
+    async function fetchJSON(url, opts = {}) {
+      const r = await fetch(url, opts);
+      return r.json();
     }
-}
 
-// 加载设备列表
-async function loadDevices() {
-    try {
+    /* 设备 */
+    async function loadDevices() {
+      try {
         const data = await fetchJSON('/api/devices');
         const c = document.getElementById('devicesContainer');
         c.innerHTML = '';
-        
+
         if (!data.devices || data.devices.length === 0) {
-            const emptyMsg = document.createElement('div');
-            emptyMsg.className = 'device';
-            emptyMsg.innerHTML = `
-                <div style="text-align: center; width: 100%;">
-                    <div class="muted">当前无已注册设备</div>
-                    <div style="font-size: 0.8em; color: #7ab7b5; margin-top: 5px;">
-                        总连接数: ${data.connections}
-                    </div>
-                </div>
-            `;
-            c.appendChild(emptyMsg);
-            return;
-        }
-        
-        // 显示统计信息
-        const statsDiv = document.createElement('div');
-        statsDiv.className = 'device';
-        statsDiv.style.background = 'rgba(2, 52, 58, 0.5)';
-        statsDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; width: 100%;">
-                <div>
-                    <strong>已注册设备:</strong> <span style="color: #06b3b0;">${data.devices.length}</span>
-                </div>
-                <div>
-                    <strong>总连接数:</strong> <span style="color: #06b3b0;">${data.connections}</span>
-                </div>
+          const emptyMsg = document.createElement('div');
+          emptyMsg.className = 'device';
+          emptyMsg.innerHTML = `
+            <div style="text-align:center;width:100%;color:var(--muted)">
+              <div>当前无已注册设备</div>
+              <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
             </div>
-        `;
-        c.appendChild(statsDiv);
-        
-        // 显示每个设备
-        data.devices.forEach(dev => {
-            const div = document.createElement('div');
-            div.className = 'device';
-            
-            const left = document.createElement('div');
-            left.innerHTML = `
-                <div style="display: flex; align-items: center;">
-                    <strong>${dev}</strong>
-                    <span class="status-badge">已注册</span>
-                </div>
-                <div style="font-size: 0.8em; color: #7ab7b5; margin-top: 4px;">
-                    设备ID: ${dev}
-                </div>
-            `;
-            
-            const right = document.createElement('div');
-            const btn1 = document.createElement('button');
-            btn1.className = 'btn small';
-            btn1.innerHTML = '<span style="font-size: 0.9em;">📷 要图</span>';
-            btn1.title = '请求通道1的快照';
-            
-            btn1.onclick = async () => {
-                btn1.disabled = true;
-                btn1.innerHTML = '<span style="font-size: 0.9em;">⏳ 发送中...</span>';
-                
-                try {
-                    const resp = await fetch('/api/request_snapshot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ device: dev, channel: 1 })
-                    });
-                    
-                    const j = await resp.json();
-                    if (j.ok) {
-                        showNotification(`已向设备 ${dev} 发送要图指令`, 'success');
-                    } else {
-                        showNotification(`发送失败: ${j.error || '未知错误'}`, 'error');
-                    }
-                } catch(e) {
-                    showNotification(`请求失败: ${e.message}`, 'error');
-                    console.error(e);
-                } finally {
-                    btn1.disabled = false;
-                    btn1.innerHTML = '<span style="font-size: 0.9em;">📷 要图</span>';
-                }
-            };
-            
-            right.appendChild(btn1);
-            div.appendChild(left);
-            div.appendChild(right);
-            c.appendChild(div);
-        });
-        
-    } catch(e) {
-        console.error('加载设备列表失败:', e);
-        const c = document.getElementById('devicesContainer');
-        c.innerHTML = '<div class="muted" style="color: #ff6b6b;">加载设备列表失败，请检查服务器连接</div>';
-    }
-}
-
-// 加载图片
-async function loadImages() {
-    try {
-        const arr = await fetchJSON('/api/images');
-        const g = document.getElementById('gallery');
-        g.innerHTML = '';
-        
-        if (!arr || arr.length === 0) {
-            g.innerHTML = '<div class="muted" style="width: 100%; text-align: center; padding: 40px;">暂无图片，请上传图片</div>';
-            return;
+          `;
+          c.appendChild(emptyMsg);
+          return;
         }
-        
-        arr.forEach(name => {
-            const wrapper = document.createElement('div');
-            wrapper.style.width = '172px';
-            wrapper.style.marginBottom = '15px';
-            
-            const th = document.createElement('div');
-            th.className = 'thumb';
-            
-            const img = document.createElement('img');
-            img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
-            img.alt = name;
-            img.loading = 'lazy';
-            
-            th.appendChild(img);
-            
-            // 点击预览大图
-            th.onclick = () => {
-                const viewer = document.getElementById('viewer');
-                viewer.innerHTML = '';
-                const big = document.createElement('img');
-                big.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
-                big.style.maxWidth = '100%';
-                big.style.maxHeight = '100%';
-                big.style.borderRadius = '4px';
-                viewer.appendChild(big);
-            };
-            
-            // 图片信息
-            const caption = document.createElement('div');
-            caption.className = 'muted';
-            caption.style.fontSize = '0.8em';
-            caption.style.marginTop = '6px';
-            caption.style.overflow = 'hidden';
-            caption.style.textOverflow = 'ellipsis';
-            caption.style.whiteSpace = 'nowrap';
-            caption.innerText = name;
-            
-            wrapper.appendChild(th);
-            wrapper.appendChild(caption);
-            g.appendChild(wrapper);
+
+        data.devices.forEach(dev => {
+          const div = document.createElement('div');
+          div.className = 'device';
+          div.innerHTML = `
+            <div>
+              <strong>${dev}</strong>
+              <div class="meta">设备ID: ${dev}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+              <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
+              <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
+            </div>
+          `;
+          const btn = div.querySelector('button');
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const old = btn.innerHTML;
+            btn.innerText = '发送中…';
+            try {
+              const resp = await fetch('/api/request_snapshot', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ device: dev, channel: 1 })
+              });
+              const j = await resp.json();
+              if (j.ok) showNotification(`已向设备 ${dev} 发送要图指令`, 'success'); else showNotification(`发送失败: ${j.error || '未知'}`, 'error');
+            } catch(e) {
+              showNotification('请求失败: '+ e.message,'error');
+            } finally {
+              btn.disabled = false;
+              btn.innerHTML = old;
+            }
+          };
+          c.appendChild(div);
         });
-    } catch(e) {
-        console.error('加载图片失败:', e);
-        const g = document.getElementById('gallery');
-        g.innerHTML = '<div class="muted" style="color: #ff6b6b;">加载图片失败</div>';
-    }
-}
 
-// 显示通知
-function showNotification(message, type = 'info') {
-    // 移除现有的通知
-    const existing = document.getElementById('notification');
-    if (existing) existing.remove();
-    
-    const notification = document.createElement('div');
-    notification.id = 'notification';
-    notification.style.position = 'fixed';
-    notification.style.top = '20px';
-    notification.style.right = '20px';
-    notification.style.padding = '15px 20px';
-    notification.style.borderRadius = '6px';
-    notification.style.color = '#021212';
-    notification.style.fontWeight = 'bold';
-    notification.style.zIndex = '1000';
-    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-    notification.style.transition = 'all 0.3s';
-    
-    if (type === 'success') {
-        notification.style.background = 'linear-gradient(#06b3b0, #028b86)';
-    } else if (type === 'error') {
-        notification.style.background = 'linear-gradient(#ff6b6b, #e74c3c)';
-    } else {
-        notification.style.background = 'linear-gradient(#a8eae6, #7ab7b5)';
+      } catch (e) {
+        console.error('加载设备失败', e);
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
+      }
     }
-    
-    notification.innerText = message;
-    document.body.appendChild(notification);
-    
-    // 3秒后自动移除
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateX(100px)';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
 
-// 初始化页面
-async function init() {
-    try {
-        // 加载连接统计
-        await loadConnectionStats();
-        
-        // 加载设备列表
-        await loadDevices();
-        
-        // 加载图片
-        await loadImages();
-        
-        showNotification('页面加载完成', 'success');
-    } catch(e) {
-        console.error('初始化失败:', e);
-        showNotification('页面初始化失败: ' + e.message, 'error');
+    /* 图片加载与分组机制 */
+    async function loadImages() {
+      try {
+        const arr = await fetchJSON('/api/images');
+        imagesList = Array.isArray(arr) ? arr : [];
+        // 选中最后一张（如果有）
+        if (imagesList.length > 0) {
+          setCurrentIndex(imagesList.length - 1, {autoAdjustGroup:true});
+        } else {
+          renderViewerEmpty();
+          renderThumbGroup();
+        }
+      } catch (e) {
+        console.error('加载图片失败', e);
+        renderViewerEmpty();
+        renderThumbGroup();
+      }
     }
-}
 
-// 事件监听器
-document.addEventListener('DOMContentLoaded', () => {
-    // 上传表单
-    document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
+    function renderViewerEmpty(){
+      const inner = document.getElementById('viewerInner');
+      inner.innerHTML = '<div style="color:var(--muted)">暂无图片，请上传或请求要图</div>';
+      document.getElementById('viewerOverlay').innerText = '-- 时间戳 --';
+    }
+
+    // 计算并渲染当前缩略图组（从 thumbGroupStart 开始，取 THUMB_GROUP_SIZE 张）
+    function renderThumbGroup(){
+      const windowEl = document.getElementById('thumbWindow');
+      windowEl.innerHTML = '';
+      if (!imagesList || imagesList.length === 0) return;
+      // 校准 thumbGroupStart
+      if (thumbGroupStart < 0) thumbGroupStart = 0;
+      if (thumbGroupStart > Math.max(0, imagesList.length - 1)) thumbGroupStart = Math.max(0, imagesList.length - 1);
+      const group = imagesList.slice(thumbGroupStart, thumbGroupStart + THUMB_GROUP_SIZE);
+      group.forEach((name, localIdx) => {
+        const globalIdx = thumbGroupStart + localIdx;
+        const item = document.createElement('div');
+        item.className = 'thumb-item';
+        item.dataset.name = name;
+        item.dataset.index = globalIdx;
+        const img = document.createElement('img');
+        img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+        img.alt = name;
+        item.appendChild(img);
+        const cap = document.createElement('div');
+        cap.className = 'thumb-caption';
+        cap.innerText = name.length>18 ? name.slice(0,18)+'…' : name;
+        item.appendChild(cap);
+
+        item.onclick = () => {
+          // 直接设置全局索引
+          setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
+        };
+
+        windowEl.appendChild(item);
+      });
+      updateThumbActiveState();
+      updateStripArrowState();
+      // 设置 thumbWindow transform（reset）
+      updateThumbWindowTransform();
+    }
+
+    function updateThumbWindowTransform(){
+      // We show the group (thumbGroupStart) as the visible group, so thumbWindow transform = 0
+      // but keep for potential animation: set transform to 0
+      const windowEl = document.getElementById('thumbWindow');
+      windowEl.style.transform = `translateX(0px)`;
+    }
+
+    function updateThumbActiveState(){
+      const windowEl = document.getElementById('thumbWindow');
+      const items = Array.from(windowEl.querySelectorAll('.thumb-item'));
+      items.forEach(it => it.classList.remove('active'));
+      if (currentIndex >= 0) {
+        const active = items.find(it => Number(it.dataset.index) === currentIndex);
+        if (active) active.classList.add('active');
+      }
+    }
+
+    function updateStripArrowState(){
+      // 左箭头可用当 thumbGroupStart > 0
+      const left = document.getElementById('stripPrev');
+      const right = document.getElementById('stripNext');
+      left.style.opacity = thumbGroupStart > 0 ? '1' : '0.28';
+      right.style.opacity = (thumbGroupStart + THUMB_GROUP_SIZE) < imagesList.length ? '1' : '0.28';
+      left.style.pointerEvents = thumbGroupStart > 0 ? 'auto' : 'none';
+      right.style.pointerEvents = (thumbGroupStart + THUMB_GROUP_SIZE) < imagesList.length ? 'auto' : 'none';
+    }
+
+    // 将 globalIndex 设置为当前图，并可选是否自动调整缩略图组
+    function setCurrentIndex(globalIndex, opts = { autoAdjustGroup: true, smoothScroll: false }){
+      if (!imagesList || imagesList.length === 0) { currentIndex = -1; renderViewerEmpty(); return; }
+      if (globalIndex < 0) globalIndex = 0;
+      if (globalIndex > imagesList.length - 1) globalIndex = imagesList.length - 1;
+      currentIndex = globalIndex;
+
+      // 计算需要显示的组起点（若 autoAdjustGroup 为 true）
+      if (opts.autoAdjustGroup) {
+        const desiredGroupStart = Math.floor(currentIndex / THUMB_GROUP_SIZE) * THUMB_GROUP_SIZE;
+        if (desiredGroupStart !== thumbGroupStart) {
+          thumbGroupStart = desiredGroupStart;
+          renderThumbGroup();
+        } else {
+          // same group: only update active highlight
+          updateThumbActiveState();
+        }
+      } else {
+        updateThumbActiveState();
+      }
+
+      // render main image
+      const name = imagesList[currentIndex];
+      renderMainImage(name);
+      // smoothScroll -> try to scroll the thumbnail container so active thumb is visible (not needed if group changed)
+      if (opts.smoothScroll) {
+        // find the active thumb element and scroll into view within the strip's visible area
+        setTimeout(() => {
+          const windowEl = document.getElementById('thumbWindow');
+          const active = windowEl.querySelector(`.thumb-item[data-index='${currentIndex}']`);
+          if (active) {
+            // scroll container (thumbStrip) to make active visible
+            const strip = document.getElementById('thumbStrip');
+            const stripInner = strip.querySelector('div[style]') || strip.querySelector('div');
+            // Use element.scrollIntoView with smooth behavior
+            active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+          }
+        }, 60);
+      }
+    }
+
+    // 切换到上一组或下一组（用于缩略图条边箭头）
+    function shiftThumbGroup(deltaGroups){
+      const newStart = thumbGroupStart + deltaGroups * THUMB_GROUP_SIZE;
+      thumbGroupStart = Math.max(0, Math.min(newStart, Math.max(0, imagesList.length - 1)));
+      renderThumbGroup();
+      // ensure if currentIndex not in new group, adjust it to group's first or keep
+      if (currentIndex < thumbGroupStart || currentIndex >= thumbGroupStart + THUMB_GROUP_SIZE) {
+        // move currentIndex to the first item in the new group (or keep within bounds)
+        const newIndex = Math.min(imagesList.length - 1, thumbGroupStart + 0);
+        setCurrentIndex(newIndex, {autoAdjustGroup:false});
+      }
+    }
+
+    function renderMainImage(name){
+      const inner = document.getElementById('viewerInner');
+      inner.innerHTML = '';
+      scale = 1; translate = {x:0,y:0};
+      const img = document.createElement('img');
+      img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+      img.alt = name;
+      img.draggable = false;
+      inner.appendChild(img);
+      document.getElementById('viewerOverlay').innerText = name;
+      setupImageInteractions(inner, img);
+      updateThumbActiveState();
+    }
+
+    /* 缩放/拖动 */
+    function setupImageInteractions(container, imgEl){
+      scale = 1; translate = {x:0,y:0}; isPanning = false;
+      function applyTransform(){ imgEl.style.transform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`; }
+      imgEl.ondblclick = () => { scale = 1; translate = {x:0,y:0}; applyTransform(); };
+      container.onwheel = (ev) => {
+        ev.preventDefault();
+        const delta = -ev.deltaY;
+        const step = delta > 0 ? 0.12 : -0.12;
+        const newScale = Math.max(1, Math.min(4, scale + step));
+        const rect = imgEl.getBoundingClientRect();
+        const cx = ev.clientX - rect.left;
+        const cy = ev.clientY - rect.top;
+        const relX = (cx - rect.width/2 - translate.x) / scale;
+        const relY = (cy - rect.height/2 - translate.y) / scale;
+        translate.x -= (newScale - scale) * relX;
+        translate.y -= (newScale - scale) * relY;
+        scale = newScale;
+        applyTransform();
+      };
+      container.onpointerdown = (ev) => {
+        if (scale <= 1) return;
+        isPanning = true;
+        panStart.x = ev.clientX; panStart.y = ev.clientY;
+        container.setPointerCapture(ev.pointerId);
+      };
+      container.onpointermove = (ev) => {
+        if (!isPanning) return;
+        const dx = ev.clientX - panStart.x;
+        const dy = ev.clientY - panStart.y;
+        panStart.x = ev.clientX; panStart.y = ev.clientY;
+        translate.x += dx; translate.y += dy;
+        applyTransform();
+      };
+      container.onpointerup = (ev) => {
+        if (!isPanning) return;
+        isPanning = false;
+        try { container.releasePointerCapture(ev.pointerId); } catch(e){}
+      };
+      container.onpointercancel = () => { isPanning = false; };
+    }
+
+    /* prev/next behavior: 当到达 group 边界时会自动调整 thumbGroupStart */
+    function showPrev(){
+      if (imagesList.length === 0) return;
+      const newIndex = Math.max(0, currentIndex - 1);
+      setCurrentIndex(newIndex, {autoAdjustGroup:true, smoothScroll:true});
+    }
+    function showNext(){
+      if (imagesList.length === 0) return;
+      const newIndex = Math.min(imagesList.length - 1, currentIndex + 1);
+      setCurrentIndex(newIndex, {autoAdjustGroup:true, smoothScroll:true});
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', showPrev);
+    document.getElementById('nextBtn').addEventListener('click', showNext);
+    window.addEventListener('keydown', (ev) => {
+      if (ev.key === 'ArrowLeft') showPrev();
+      if (ev.key === 'ArrowRight') showNext();
+      if (ev.key === 'Escape') {
+        const img = document.querySelector('#viewerInner img');
+        if (img) { img.style.transform = 'translate(0px,0px) scale(1)'; scale = 1; translate = {x:0,y:0}; }
+      }
+    });
+
+    /* strip arrows control groups */
+    document.getElementById('stripPrev').addEventListener('click', () => shiftThumbGroup(-1));
+    document.getElementById('stripNext').addEventListener('click', () => shiftThumbGroup(1));
+
+    /* 上传 & 控件（保留接口） */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const f = document.getElementById('fileInput').files[0];
-        if (!f) { 
-            showNotification('请选择文件', 'error');
-            return; 
-        }
-        
+        if (!f) { showNotification('请选择文件', 'error'); return; }
         const fd = new FormData();
         fd.append('image', f, f.name);
         const resDiv = document.getElementById('uploadResult');
         resDiv.innerText = '上传中...';
-        resDiv.style.color = '#a8eae6';
-        
         try {
-            const resp = await fetch('/upload', { method: 'POST', body: fd });
-            const j = await resp.json();
-            if (j.ok) {
-                resDiv.innerText = '上传成功: ' + j.filename;
-                resDiv.style.color = '#06b3b0';
-                showNotification('图片上传成功', 'success');
-                await loadImages();
-            } else {
-                resDiv.innerText = '上传失败: ' + (j.error || '未知错误');
-                resDiv.style.color = '#ff6b6b';
-                showNotification('上传失败: ' + (j.error || '未知错误'), 'error');
-            }
+          const resp = await fetch('/upload', { method:'POST', body: fd });
+          const j = await resp.json();
+          if (j.ok) {
+            resDiv.innerText = '上传成功: ' + j.filename;
+            showNotification('图片上传成功', 'success');
+            await loadImages();
+          } else {
+            resDiv.innerText = '上传失败: ' + (j.error||'未知');
+            showNotification('上传失败: ' + (j.error||'未知'), 'error');
+          }
         } catch (e) {
-            resDiv.innerText = '上传异常: ' + e.message;
-            resDiv.style.color = '#ff6b6b';
-            showNotification('上传异常: ' + e.message, 'error');
+          resDiv.innerText = '上传异常: ' + e.message;
+          showNotification('上传异常: ' + e.message, 'error');
         }
-    });
-    
-    // 刷新设备按钮
-    document.getElementById('refreshDevices').addEventListener('click', async () => {
-        const btn = document.getElementById('refreshDevices');
-        btn.disabled = true;
-        btn.innerHTML = '刷新中...';
-        
-        await loadDevices();
-        await loadConnectionStats();
-        
-        btn.disabled = false;
-        btn.innerHTML = '刷新';
-        showNotification('设备列表已刷新', 'success');
-    });
-    
-    // 刷新图片按钮
-    document.getElementById('refreshImages').addEventListener('click', async () => {
-        const btn = document.getElementById('refreshImages');
-        btn.disabled = true;
-        btn.innerHTML = '刷新中...';
-        
-        await loadImages();
-        
-        btn.disabled = false;
-        btn.innerHTML = '刷新图片';
-        showNotification('图片库已刷新', 'success');
-    });
-    
-    // 测试添加连接按钮
-    document.getElementById('testAddConnection').addEventListener('click', async () => {
-        const btn = document.getElementById('testAddConnection');
-        btn.disabled = true;
-        btn.innerHTML = '添加中...';
-        
-        try {
-            const data = await fetchJSON('/api/test/add_connection');
-            showNotification(`添加测试连接成功 (fd: ${data.fd})`, 'success');
-            
-            // 刷新设备列表
-            await loadDevices();
-            await loadConnectionStats();
-        } catch(e) {
-            showNotification('添加测试连接失败: ' + e.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '+ 测试';
-        }
-    });
-    
-    // 设置定时刷新（每5秒）
-    refreshInterval = setInterval(async () => {
-        await loadDevices();
-        await loadConnectionStats();
-    }, 5000);
-    
-    // 初始化页面
-    init();
-});
+      });
 
-// 页面卸载时清理定时器
-window.addEventListener('beforeunload', () => {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
+      document.getElementById('datePicker').addEventListener('change', (ev) => {
+        showNotification('已选择日期: ' + ev.target.value, 'info');
+      });
+
+      document.getElementById('grabBtn').addEventListener('click', () => {
+        const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
+        if (firstDeviceElem) {
+          const dev = firstDeviceElem.innerText;
+          fetch('/api/request_snapshot', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ device: dev, channel: 1 })
+          }).then(r=>r.json()).then(j=>{
+            if (j.ok) showNotification('已发送抓图请求', 'success'); else showNotification('抓图失败', 'error');
+          }).catch(e=>showNotification('请求失败: '+e.message,'error'));
+        } else showNotification('无可用设备', 'error');
+      });
+
+      document.getElementById('playbackBtn').addEventListener('click', () => showNotification('回放功能（前端占位）','info'));
+      document.getElementById('downloadBtn').addEventListener('click', () => {
+        if (currentIndex >= 0 && imagesList[currentIndex]) {
+          const url = '/uploads/' + encodeURIComponent(imagesList[currentIndex]);
+          const a = document.createElement('a'); a.href = url; a.download = imagesList[currentIndex]; document.body.appendChild(a); a.click(); a.remove();
+        } else showNotification('无图片可下载', 'error');
+      });
+      document.getElementById('fullBtn').addEventListener('click', () => {
+        const viewer = document.getElementById('viewerWrap');
+        if (document.fullscreenElement) document.exitFullscreen();
+        else viewer.requestFullscreen().catch(()=>showNotification('无法进入全屏','error'));
+      });
+
+      document.querySelectorAll('.channel-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          showNotification('切换到通道 ' + btn.dataset.channel, 'info');
+        });
+      });
+
+      document.querySelectorAll('.nav-tabs button').forEach(b => {
+        b.addEventListener('click', () => {
+          document.querySelectorAll('.nav-tabs button').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          showNotification('切换到：' + b.innerText, 'info');
+        });
+      });
+
+      document.getElementById('refreshAll').addEventListener('click', async () => {
+        await loadDevices(); await loadImages(); showNotification('已刷新', 'success');
+      });
+
+      init();
+    });
+
+    async function init() {
+      try {
+        await loadConnectionStats();
+        await loadDevices();
+        await loadImages();
+        refreshInterval = setInterval(async () => { await loadDevices(); await loadConnectionStats(); }, 5000);
+      } catch (e) {
+        console.error('初始化异常', e);
+      }
     }
-});
-</script>
+    async function loadConnectionStats(){
+      try {
+        const data = await fetchJSON('/api/connections');
+        document.title = `设备管理 (${data.total_connections||0} 连接)`;
+      } catch(e){}
+    }
+
+    function showNotification(message, type='info'){
+      const existing = document.getElementById('notification');
+      if (existing) existing.remove();
+      const n = document.createElement('div');
+      n.id = 'notification';
+      n.style.position = 'fixed';
+      n.style.top = '18px'; n.style.right = '18px';
+      n.style.padding = '12px 16px'; n.style.borderRadius = '8px';
+      n.style.zIndex = 9999; n.style.boxShadow = '0 8px 30px rgba(0,0,0,0.5)';
+      n.style.fontWeight = 700; n.style.color = '#021212';
+      if (type === 'success') n.style.background = 'linear-gradient(#06b3b0,#028b86)';
+      else if (type === 'error') n.style.background = 'linear-gradient(#ff6b6b,#e74c3c)';
+      else n.style.background = 'linear-gradient(#a8eae6,#7ab7b5)';
+      n.innerText = message;
+      document.body.appendChild(n);
+      setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateX(60px)'; setTimeout(()=>n.remove(),300); }, 2500);
+    }
+
+    window.addEventListener('beforeunload', () => { if (refreshInterval) clearInterval(refreshInterval); });
+  </script>
 </body>
 </html>
