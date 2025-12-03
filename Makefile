@@ -1,6 +1,6 @@
 # #可执行文件
 TARGET = ./bin/SocketServer
-CXXFLAGS :=  -w -I./inc -I./inc/spdlog -fPIC
+CXXFLAGS :=  -w -I./inc
 LDFLAGS := -lpthread 
 
 # 定义编译器

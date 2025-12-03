@@ -115,7 +115,7 @@ void start_http_server() {
 
     // 静态资源挂载：把 web/ 目录作为静态根目录
     // set_mount_point(mount_point, dir)
-    svr.set_mount_point("/", "/home/jym/code/cpp/personal-project/gw-server/bin/web");
+    svr.set_mount_point("/", "./web");
 
     // 增大允许的 payload（可按需调整）
     svr.set_payload_max_length(50 * 1024 * 1024); // 50MB
