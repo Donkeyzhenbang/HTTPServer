@@ -3,3 +3,4 @@ SocketServer
 *.png
 *.jpg
 .vscode/
+.env

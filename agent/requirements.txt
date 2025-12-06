@@ -1,0 +1,14 @@
+# 核心：使用阿里云官方DashScope SDK
+dashscope>=1.14.0
+
+# LangChain核心（仅使用基础功能，避开复杂的Agent创建）
+langchain==0.0.340
+langchain-community==0.0.8
+
+# Web框架
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# 其他工具
+requests==2.31.0
+python-dotenv==1.0.0
