@@ -2,6 +2,7 @@
 #include "http_server.h"
 #include "httplib.h"
 #include "connection.h"  // 包含连接管理器
+#include "sendfile.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -14,8 +15,27 @@
 #include <sstream>
 #include <iomanip>
 
+
 // 不再需要extern原来的全局变量
 // 现在使用connection_manager.h中的函数
+
+// 新增：发送B341指令的函数
+static bool send_b341_to_fd(int fd, int channel_no) {
+    if (fd < 0) return false;
+    
+    try {
+        // 调用已有的SendProtocolB341函数
+        SendProtocolB341(fd, channel_no);
+        std::cout << "[HTTP] 已向fd=" << fd << "发送B341指令，通道=" << channel_no << std::endl;
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[HTTP] 发送B341指令失败: " << e.what() << std::endl;
+        return false;
+    } catch (...) {
+        std::cerr << "[HTTP] 发送B341指令未知错误" << std::endl;
+        return false;
+    }
+}
 
 // helper: list files in web/uploads
 static std::vector<std::string> list_uploaded_files(const std::string &dir) {
@@ -298,61 +318,61 @@ void start_http_server() {
     });
 
     // POST /api/request_snapshot
-    svr.Post("/api/request_snapshot", [](const httplib::Request &req, httplib::Response &res) {
-        std::string device;
-        std::string channel = "1";
+    // svr.Post("/api/request_snapshot", [](const httplib::Request &req, httplib::Response &res) {
+    //     std::string device;
+    //     std::string channel = "1";
         
-        // 尝试从查询参数获取
-        if (req.has_param("device")) device = req.get_param_value("device", 0);
-        if (req.has_param("channel")) channel = req.get_param_value("channel", 0);
+    //     // 尝试从查询参数获取
+    //     if (req.has_param("device")) device = req.get_param_value("device", 0);
+    //     if (req.has_param("channel")) channel = req.get_param_value("channel", 0);
         
-        // 尝试从body解析
-        if (device.empty() && !req.body.empty()) {
-            // 简单JSON解析
-            auto pos = req.body.find("\"device\"");
-            if (pos != std::string::npos) {
-                auto colon = req.body.find(':', pos);
-                if (colon != std::string::npos) {
-                    auto q1 = req.body.find('"', colon);
-                    if (q1 != std::string::npos) {
-                        auto q2 = req.body.find('"', q1 + 1);
-                        if (q2 != std::string::npos && q2 > q1+1) {
-                            device = req.body.substr(q1+1, q2-q1-1);
-                        }
-                    }
-                }
-            }
-        }
+    //     // 尝试从body解析
+    //     if (device.empty() && !req.body.empty()) {
+    //         // 简单JSON解析
+    //         auto pos = req.body.find("\"device\"");
+    //         if (pos != std::string::npos) {
+    //             auto colon = req.body.find(':', pos);
+    //             if (colon != std::string::npos) {
+    //                 auto q1 = req.body.find('"', colon);
+    //                 if (q1 != std::string::npos) {
+    //                     auto q2 = req.body.find('"', q1 + 1);
+    //                     if (q2 != std::string::npos && q2 > q1+1) {
+    //                         device = req.body.substr(q1+1, q2-q1-1);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
         
-        if (device.empty()) {
-            res.status = 400;
-            res.set_content("{\"ok\":false,\"error\":\"missing device\"}", "application/json");
-            return;
-        }
+    //     if (device.empty()) {
+    //         res.status = 400;
+    //         res.set_content("{\"ok\":false,\"error\":\"missing device\"}", "application/json");
+    //         return;
+    //     }
         
-        // 从连接管理器查找设备
-        auto* conn_ctx = find_connection_by_device_id(device);
+    //     // 从连接管理器查找设备
+    //     auto* conn_ctx = find_connection_by_device_id(device);
         
-        if (!conn_ctx) {
-            res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
-            return;
-        }
+    //     if (!conn_ctx) {
+    //         res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
+    //         return;
+    //     }
         
-        // 生成协议命令
-        std::ostringstream proto;
-        proto << "CMD:SNAPSHOT;CH:" << channel << "\n";
-        std::string proto_s = proto.str();
+    //     // 生成协议命令
+    //     std::ostringstream proto;
+    //     proto << "CMD:SNAPSHOT;CH:" << channel << "\n";
+    //     std::string proto_s = proto.str();
         
-        // 发送命令
-        ssize_t n = ::send(conn_ctx->connfd, proto_s.c_str(), proto_s.size(), 0);
-        if (n <= 0) {
-            res.set_content("{\"ok\":false,\"error\":\"send failed\"}", "application/json");
-            return;
-        }
+    //     // 发送命令
+    //     ssize_t n = ::send(conn_ctx->connfd, proto_s.c_str(), proto_s.size(), 0);
+    //     if (n <= 0) {
+    //         res.set_content("{\"ok\":false,\"error\":\"send failed\"}", "application/json");
+    //         return;
+    //     }
         
-        res.set_content("{\"ok\":true,\"message\":\"command sent successfully\",\"device\":\"" 
-                        + device + "\",\"channel\":" + channel + "}", "application/json");
-    });
+    //     res.set_content("{\"ok\":true,\"message\":\"command sent successfully\",\"device\":\"" 
+    //                     + device + "\",\"channel\":" + channel + "}", "application/json");
+    // });
 
     // 健康检查端点
     svr.Get("/health", [](const httplib::Request &req, httplib::Response &res) {
@@ -405,6 +425,197 @@ void start_http_server() {
         oss << "}";
         
         res.set_content(oss.str(), "application/json");
+    });
+
+    // POST /api/request_snapshot (保持原有逻辑，兼容旧前端)
+    svr.Post("/api/request_snapshot", [](const httplib::Request &req, httplib::Response &res) {
+        std::string device;
+        std::string channel = "1";
+        
+        // 尝试从查询参数获取
+        if (req.has_param("device")) device = req.get_param_value("device", 0);
+        if (req.has_param("channel")) channel = req.get_param_value("channel", 0);
+        
+        // 尝试从body解析
+        if (device.empty() && !req.body.empty()) {
+            // 简单JSON解析
+            auto pos = req.body.find("\"device\"");
+            if (pos != std::string::npos) {
+                auto colon = req.body.find(':', pos);
+                if (colon != std::string::npos) {
+                    auto q1 = req.body.find('"', colon);
+                    if (q1 != std::string::npos) {
+                        auto q2 = req.body.find('"', q1 + 1);
+                        if (q2 != std::string::npos && q2 > q1+1) {
+                            device = req.body.substr(q1+1, q2-q1-1);
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (device.empty()) {
+            res.status = 400;
+            res.set_content("{\"ok\":false,\"error\":\"missing device\"}", "application/json");
+            return;
+        }
+        
+        // 从连接管理器查找设备
+        auto* conn_ctx = find_connection_by_device_id(device);
+        
+        if (!conn_ctx) {
+            res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
+            return;
+        }
+        
+        // 生成协议命令（保持原有文本命令格式，用于兼容）
+        std::ostringstream proto;
+        proto << "CMD:SNAPSHOT;CH:" << channel << "\n";
+        std::string proto_s = proto.str();
+        
+        // 发送命令
+        ssize_t n = ::send(conn_ctx->connfd, proto_s.c_str(), proto_s.size(), 0);
+        if (n <= 0) {
+            res.set_content("{\"ok\":false,\"error\":\"send failed\"}", "application/json");
+            return;
+        }
+        
+        res.set_content("{\"ok\":true,\"message\":\"command sent successfully\",\"device\":\"" 
+                        + device + "\",\"channel\":" + channel + "}", "application/json");
+    });
+
+    // 新增：POST /api/send_b341 - 发送B341指令
+    svr.Post("/api/send_b341", [](const httplib::Request &req, httplib::Response &res) {
+        std::string device;
+        int channel = 1;
+        
+        // 从JSON body解析
+        if (!req.body.empty()) {
+            try {
+                // 简单JSON解析
+                auto pos = req.body.find("\"device\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find('"', colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find('"', q1 + 1);
+                            if (q2 != std::string::npos && q2 > q1+1) {
+                                device = req.body.substr(q1+1, q2-q1-1);
+                            }
+                        }
+                    }
+                }
+                
+                pos = req.body.find("\"channel\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find_first_of("0123456789", colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find_first_not_of("0123456789", q1);
+                            std::string channel_str = req.body.substr(q1, q2 - q1);
+                            channel = std::stoi(channel_str);
+                            if (channel < 1) channel = 1;
+                            if (channel > 4) channel = 4;
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[HTTP] 解析请求失败: " << e.what() << std::endl;
+            }
+        }
+        
+        if (device.empty()) {
+            res.status = 400;
+            res.set_content("{\"ok\":false,\"error\":\"missing device\"}", "application/json");
+            return;
+        }
+        
+        // 从连接管理器查找设备
+        auto* conn_ctx = find_connection_by_device_id(device);
+        
+        if (!conn_ctx) {
+            res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
+            return;
+        }
+        
+        // 发送B341指令
+        bool success = send_b341_to_fd(conn_ctx->connfd, channel);
+        
+        if (!success) {
+            res.set_content("{\"ok\":false,\"error\":\"failed to send B341 command\"}", "application/json");
+            return;
+        }
+        
+        res.set_content("{\"ok\":true,\"message\":\"B341 command sent successfully\",\"device\":\"" 
+                        + device + "\",\"channel\":" + std::to_string(channel) + "}", "application/json");
+    });
+
+    // 新增：POST /api/send_b341_by_fd - 直接通过fd发送B341指令
+    svr.Post("/api/send_b341_by_fd", [](const httplib::Request &req, httplib::Response &res) {
+        int fd = -1;
+        int channel = 1;
+        
+        // 从JSON body解析
+        if (!req.body.empty()) {
+            try {
+                // 简单JSON解析
+                auto pos = req.body.find("\"fd\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find_first_of("0123456789", colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find_first_not_of("0123456789", q1);
+                            std::string fd_str = req.body.substr(q1, q2 - q1);
+                            fd = std::stoi(fd_str);
+                        }
+                    }
+                }
+                
+                pos = req.body.find("\"channel\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find_first_of("0123456789", colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find_first_not_of("0123456789", q1);
+                            std::string channel_str = req.body.substr(q1, q2 - q1);
+                            channel = std::stoi(channel_str);
+                            if (channel < 1) channel = 1;
+                            if (channel > 4) channel = 4;
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[HTTP] 解析请求失败: " << e.what() << std::endl;
+            }
+        }
+        
+        if (fd < 0) {
+            res.status = 400;
+            res.set_content("{\"ok\":false,\"error\":\"missing or invalid fd\"}", "application/json");
+            return;
+        }
+        
+        // 检查连接是否存在
+        auto* conn_ctx = find_connection_by_fd(fd);
+        if (!conn_ctx) {
+            res.set_content("{\"ok\":false,\"error\":\"fd not found or connection not active\"}", "application/json");
+            return;
+        }
+        
+        // 发送B341指令
+        bool success = send_b341_to_fd(fd, channel);
+        
+        if (!success) {
+            res.set_content("{\"ok\":false,\"error\":\"failed to send B341 command\"}", "application/json");
+            return;
+        }
+        
+        res.set_content("{\"ok\":true,\"message\":\"B341 command sent successfully\",\"fd\":" 
+                        + std::to_string(fd) + ",\"channel\":" + std::to_string(channel) + "}", "application/json");
     });
 
     std::cout << "[HTTP] Server starting on 0.0.0.0:8080\n";

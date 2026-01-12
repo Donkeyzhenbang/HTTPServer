@@ -270,67 +270,67 @@
     }
 
     /* 设备 */
-    async function loadDevices() {
-      try {
-        const data = await fetchJSON('/api/devices');
-        const c = document.getElementById('devicesContainer');
-        c.innerHTML = '';
+    // async function loadDevices() {
+    //   try {
+    //     const data = await fetchJSON('/api/devices');
+    //     const c = document.getElementById('devicesContainer');
+    //     c.innerHTML = '';
 
-        if (!data.devices || data.devices.length === 0) {
-          const emptyMsg = document.createElement('div');
-          emptyMsg.className = 'device';
-          emptyMsg.innerHTML = `
-            <div style="text-align:center;width:100%;color:var(--muted)">
-              <div>当前无已注册设备</div>
-              <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
-            </div>
-          `;
-          c.appendChild(emptyMsg);
-          return;
-        }
+    //     if (!data.devices || data.devices.length === 0) {
+    //       const emptyMsg = document.createElement('div');
+    //       emptyMsg.className = 'device';
+    //       emptyMsg.innerHTML = `
+    //         <div style="text-align:center;width:100%;color:var(--muted)">
+    //           <div>当前无已注册设备</div>
+    //           <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
+    //         </div>
+    //       `;
+    //       c.appendChild(emptyMsg);
+    //       return;
+    //     }
 
-        data.devices.forEach(dev => {
-          const div = document.createElement('div');
-          div.className = 'device';
-          div.innerHTML = `
-            <div>
-              <strong>${dev}</strong>
-              <div class="meta">设备ID: ${dev}</div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-              <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
-              <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
-            </div>
-          `;
-          const btn = div.querySelector('button');
-          btn.onclick = async () => {
-            btn.disabled = true;
-            const old = btn.innerHTML;
-            btn.innerText = '发送中…';
-            try {
-              const resp = await fetch('/api/request_snapshot', {
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ device: dev, channel: 1 })
-              });
-              const j = await resp.json();
-              if (j.ok) showNotification(`已向设备 ${dev} 发送要图指令`, 'success'); else showNotification(`发送失败: ${j.error || '未知'}`, 'error');
-            } catch(e) {
-              showNotification('请求失败: '+ e.message,'error');
-            } finally {
-              btn.disabled = false;
-              btn.innerHTML = old;
-            }
-          };
-          c.appendChild(div);
-        });
+    //     data.devices.forEach(dev => {
+    //       const div = document.createElement('div');
+    //       div.className = 'device';
+    //       div.innerHTML = `
+    //         <div>
+    //           <strong>${dev}</strong>
+    //           <div class="meta">设备ID: ${dev}</div>
+    //         </div>
+    //         <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+    //           <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
+    //           <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
+    //         </div>
+    //       `;
+    //       const btn = div.querySelector('button');
+    //       btn.onclick = async () => {
+    //         btn.disabled = true;
+    //         const old = btn.innerHTML;
+    //         btn.innerText = '发送中…';
+    //         try {
+    //           const resp = await fetch('/api/request_snapshot', {
+    //             method:'POST',
+    //             headers:{'Content-Type':'application/json'},
+    //             body: JSON.stringify({ device: dev, channel: 1 })
+    //           });
+    //           const j = await resp.json();
+    //           if (j.ok) showNotification(`已向设备 ${dev} 发送要图指令`, 'success'); else showNotification(`发送失败: ${j.error || '未知'}`, 'error');
+    //         } catch(e) {
+    //           showNotification('请求失败: '+ e.message,'error');
+    //         } finally {
+    //           btn.disabled = false;
+    //           btn.innerHTML = old;
+    //         }
+    //       };
+    //       c.appendChild(div);
+    //     });
 
-      } catch (e) {
-        console.error('加载设备失败', e);
-        const c = document.getElementById('devicesContainer');
-        c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
-      }
-    }
+    //   } catch (e) {
+    //     console.error('加载设备失败', e);
+    //     const c = document.getElementById('devicesContainer');
+    //     c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
+    //   }
+    // }
 
     /* 图片加载与分组机制 */
     // async function loadImages() {
@@ -745,6 +745,144 @@
       setCurrentIndex(newIndex, {autoAdjustGroup:true, smoothScroll:true});
     }
 
+    // 修改抓图按钮事件
+    document.getElementById('grabBtn').addEventListener('click', async () => {
+        const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
+        if (firstDeviceElem) {
+            const dev = firstDeviceElem.innerText;
+            // 获取当前选中的通道
+            const activeChannelBtn = document.querySelector('.channel-btn.active');
+            const channel = activeChannelBtn ? activeChannelBtn.dataset.channel : "1";
+            
+            // 显示发送状态
+            const oldText = document.getElementById('grabBtn').innerText;
+            document.getElementById('grabBtn').innerText = '发送中...';
+            document.getElementById('grabBtn').disabled = true;
+            
+            try {
+                // 使用新的B341 API
+                const response = await fetch('/api/send_b341', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        device: dev, 
+                        channel: parseInt(channel) 
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.ok) {
+                    showNotification(`已向设备 ${dev} 发送B341抓图指令`, 'success');
+                    // 等待3秒后自动刷新图片列表（给设备时间处理指令并返回图片）
+                    setTimeout(async () => {
+                        await loadImages();
+                        showNotification('正在检查新图片...', 'info');
+                    }, 3000);
+                } else {
+                    showNotification(`发送失败: ${result.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showNotification('请求失败: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                document.getElementById('grabBtn').innerText = oldText;
+                document.getElementById('grabBtn').disabled = false;
+            }
+        } else {
+            showNotification('无可用设备，请等待设备连接', 'error');
+        }
+    });
+
+    // 修改设备列表中的"要图"按钮逻辑
+    function setupDeviceButtons() {
+        const deviceButtons = document.querySelectorAll('#devicesContainer .device button');
+        deviceButtons.forEach(btn => {
+            btn.onclick = async function() {
+                const deviceDiv = this.closest('.device');
+                const deviceId = deviceDiv.querySelector('strong').innerText;
+                const activeChannelBtn = document.querySelector('.channel-btn.active');
+                const channel = activeChannelBtn ? activeChannelBtn.dataset.channel : "1";
+                
+                const oldText = this.innerText;
+                this.innerText = '发送中...';
+                this.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/send_b341', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            device: deviceId, 
+                            channel: parseInt(channel) 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.ok) {
+                        showNotification(`已向设备 ${deviceId} 发送B341抓图指令`, 'success');
+                        // 等待后刷新图片
+                        setTimeout(async () => {
+                            await loadImages();
+                        }, 3000);
+                    } else {
+                        showNotification(`发送失败: ${result.error || '未知错误'}`, 'error');
+                    }
+                } catch (error) {
+                    showNotification('请求失败: ' + error.message, 'error');
+                } finally {
+                    this.innerText = oldText;
+                    this.disabled = false;
+                }
+            };
+        });
+    }
+
+    // 修改loadDevices函数，在设备加载完成后设置按钮
+    async function loadDevices() {
+      try {
+        const data = await fetchJSON('/api/devices');
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '';
+
+        if (!data.devices || data.devices.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.className = 'device';
+          emptyMsg.innerHTML = `
+            <div style="text-align:center;width:100%;color:var(--muted)">
+              <div>当前无已注册设备</div>
+              <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
+            </div>
+          `;
+          c.appendChild(emptyMsg);
+          return;
+        }
+
+        data.devices.forEach(dev => {
+          const div = document.createElement('div');
+          div.className = 'device';
+          div.innerHTML = `
+            <div>
+              <strong>${dev}</strong>
+              <div class="meta">设备ID: ${dev}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+              <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
+              <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
+            </div>
+          `;
+          c.appendChild(div);
+        });
+
+        // 设置设备按钮事件
+        setupDeviceButtons();
+
+      } catch (e) {
+        console.error('加载设备失败', e);
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
+      }
+    }
+
     document.getElementById('prevBtn').addEventListener('click', showPrev);
     document.getElementById('nextBtn').addEventListener('click', showNext);
     window.addEventListener('keydown', (ev) => {
@@ -791,18 +929,18 @@
         showNotification('已选择日期: ' + ev.target.value, 'info');
       });
 
-      document.getElementById('grabBtn').addEventListener('click', () => {
-        const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
-        if (firstDeviceElem) {
-          const dev = firstDeviceElem.innerText;
-          fetch('/api/request_snapshot', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ device: dev, channel: 1 })
-          }).then(r=>r.json()).then(j=>{
-            if (j.ok) showNotification('已发送抓图请求', 'success'); else showNotification('抓图失败', 'error');
-          }).catch(e=>showNotification('请求失败: '+e.message,'error'));
-        } else showNotification('无可用设备', 'error');
-      });
+      // document.getElementById('grabBtn').addEventListener('click', () => {
+      //   const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
+      //   if (firstDeviceElem) {
+      //     const dev = firstDeviceElem.innerText;
+      //     fetch('/api/request_snapshot', {
+      //       method:'POST', headers:{'Content-Type':'application/json'},
+      //       body: JSON.stringify({ device: dev, channel: 1 })
+      //     }).then(r=>r.json()).then(j=>{
+      //       if (j.ok) showNotification('已发送抓图请求', 'success'); else showNotification('抓图失败', 'error');
+      //     }).catch(e=>showNotification('请求失败: '+e.message,'error'));
+      //   } else showNotification('无可用设备', 'error');
+      // });
 
       document.getElementById('playbackBtn').addEventListener('click', () => showNotification('回放功能（前端占位）','info'));
       document.getElementById('downloadBtn').addEventListener('click', () => {
