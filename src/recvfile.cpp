@@ -475,12 +475,22 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     
     do {
         do{
-            // Packet_t* pPacket = new Packet_t; 
+
             unique_ptr<Packet_t> pPacket(new Packet_t);//需要这种方式进行初始化
             // unique_ptr<Packet_t> pPacket = make_unique<Packet_t>();//C++14，才有make_unique
 
             // recv_and_resolve(fd, pPacket.get(), pQueue);
             int ret = recv_and_resolve(fd, pPacket.get(), pQueue, &context->is_connection_alive);
+            // if(ret < 0) break;
+            if (ret < 0) {
+                // 接收失败，退出循环
+                printf("接收数据失败，错误码: %d\n", ret);
+                if (ret == -1) {
+                    printf("连接已断开，停止接收图片\n");
+                }
+                free(pPhotoBuffer);
+                return -1;
+            }
             //从包中解析
             getFramePacketType(pPacket->packetBuffer, &frameType, &packetType);
             // printf("frameType=0x%x, packetType=0x%x\n",frameType,packetType);

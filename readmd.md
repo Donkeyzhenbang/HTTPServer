@@ -54,8 +54,17 @@ scp ./bin/SocketServer jym@47.121.121.86:/home/jym/
 ```
 ## 代码行数检测
 ```sh
-wc -l `find src inc -name "*.cpp";find src inc -name "*.h"`
+wc -l `find . -name "*.cpp";find . -name "*.h";find . -name "*.py";find . -name "*.html";find . -name "*.js"`
 ```
+
+## 关于测试
+- 测试单张图片能发送
+- 测试多张图片要发送
+- 测试客户端可用静默链接
+- 测试传图中断可用处理
+- 任何错误处理都不能影响主程序继续接受其他链接
+- 测试主动要图
+- 
 
 ## 等待心跳包协议
 ```cpp

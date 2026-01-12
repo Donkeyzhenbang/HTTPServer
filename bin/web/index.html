@@ -333,13 +333,35 @@
     }
 
     /* 图片加载与分组机制 */
+    // async function loadImages() {
+    //   try {
+    //     const arr = await fetchJSON('/api/images');
+    //     imagesList = Array.isArray(arr) ? arr : [];
+    //     // 选中最后一张（如果有）
+    //     if (imagesList.length > 0) {
+    //       setCurrentIndex(imagesList.length - 1, {autoAdjustGroup:true});
+    //     } else {
+    //       renderViewerEmpty();
+    //       renderThumbGroup();
+    //     }
+    //   } catch (e) {
+    //     console.error('加载图片失败', e);
+    //     renderViewerEmpty();
+    //     renderThumbGroup();
+    //   }
+    // }
+    /* 图片加载与分组机制 */
     async function loadImages() {
       try {
-        const arr = await fetchJSON('/api/images');
+        // 添加时间戳避免缓存，强制刷新
+        const arr = await fetchJSON('/api/images?_=' + Date.now());
         imagesList = Array.isArray(arr) ? arr : [];
-        // 选中最后一张（如果有）
+        
+        // 如果有新图片，选择最后一张
         if (imagesList.length > 0) {
           setCurrentIndex(imagesList.length - 1, {autoAdjustGroup:true});
+          // 同时刷新缩略图
+          renderThumbGroup();
         } else {
           renderViewerEmpty();
           renderThumbGroup();
@@ -351,20 +373,61 @@
       }
     }
 
-    function renderViewerEmpty(){
-      const inner = document.getElementById('viewerInner');
-      inner.innerHTML = '<div style="color:var(--muted)">暂无图片，请上传或请求要图</div>';
-      document.getElementById('viewerOverlay').innerText = '-- 时间戳 --';
+    /* 刷新按钮功能增强 */
+    document.getElementById('refreshAll').addEventListener('click', async () => {
+      try {
+        // 清除可能的缓存
+        imagesList = [];
+        currentIndex = -1;
+        thumbGroupStart = 0;
+        
+        // 显示加载状态
+        const viewerInner = document.getElementById('viewerInner');
+        viewerInner.innerHTML = '<div style="color:var(--muted)">刷新中...</div>';
+        
+        // 并行刷新设备和图片
+        await Promise.all([
+          loadDevices(),
+          loadImages()
+        ]);
+        showNotification('已刷新图片和设备列表', 'success');
+      } catch (e) {
+        console.error('刷新失败', e);
+        showNotification('刷新失败: ' + e.message, 'error');
+      }
+    });
+
+    /* 修改缩略图点击事件，强制刷新图片 */
+    function attachThumbClickEvents() {
+      const windowEl = document.getElementById('thumbWindow');
+      const items = Array.from(windowEl.querySelectorAll('.thumb-item'));
+      
+      items.forEach(item => {
+        // 移除旧的事件监听器
+        item.onclick = null;
+        
+        // 添加新的事件监听器
+        item.onclick = () => {
+          const globalIdx = parseInt(item.dataset.index);
+          // 重新加载图片，避免缓存
+          const img = item.querySelector('img');
+          if (img) {
+            img.src = '/uploads/' + encodeURIComponent(item.dataset.name) + '?_=' + Date.now();
+          }
+          setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
+        };
+      });
     }
 
-    // 计算并渲染当前缩略图组（从 thumbGroupStart 开始，取 THUMB_GROUP_SIZE 张）
+    // 修改renderThumbGroup函数，调用attachThumbClickEvents
     function renderThumbGroup(){
       const windowEl = document.getElementById('thumbWindow');
       windowEl.innerHTML = '';
       if (!imagesList || imagesList.length === 0) return;
-      // 校准 thumbGroupStart
+      
       if (thumbGroupStart < 0) thumbGroupStart = 0;
       if (thumbGroupStart > Math.max(0, imagesList.length - 1)) thumbGroupStart = Math.max(0, imagesList.length - 1);
+      
       const group = imagesList.slice(thumbGroupStart, thumbGroupStart + THUMB_GROUP_SIZE);
       group.forEach((name, localIdx) => {
         const globalIdx = thumbGroupStart + localIdx;
@@ -372,27 +435,166 @@
         item.className = 'thumb-item';
         item.dataset.name = name;
         item.dataset.index = globalIdx;
+        
         const img = document.createElement('img');
-        img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+        // 添加时间戳避免缓存
+        img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
         img.alt = name;
         item.appendChild(img);
+        
         const cap = document.createElement('div');
         cap.className = 'thumb-caption';
-        cap.innerText = name.length>18 ? name.slice(0,18)+'…' : name;
+        cap.innerText = name.length > 18 ? name.slice(0,18) + '…' : name;
         item.appendChild(cap);
-
-        item.onclick = () => {
-          // 直接设置全局索引
-          setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
-        };
 
         windowEl.appendChild(item);
       });
+      
+      // 更新事件监听器
+      attachThumbClickEvents();
       updateThumbActiveState();
       updateStripArrowState();
-      // 设置 thumbWindow transform（reset）
       updateThumbWindowTransform();
     }
+
+    // 修改renderMainImage函数，添加时间戳
+    function renderMainImage(name){
+      const inner = document.getElementById('viewerInner');
+      inner.innerHTML = '';
+      scale = 1; translate = {x:0,y:0};
+      const img = document.createElement('img');
+      // 添加时间戳避免缓存
+      img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+      img.alt = name;
+      img.draggable = false;
+      
+      // 添加图片加载失败处理
+      img.onerror = function() {
+        console.log('图片加载失败，重试...');
+        // 1秒后重试
+        setTimeout(() => {
+          this.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+        }, 1000);
+      };
+      
+      img.onload = function() {
+        console.log('图片加载成功:', name);
+        // 图片加载成功后的处理
+      };
+      
+      inner.appendChild(img);
+      document.getElementById('viewerOverlay').innerText = name;
+      setupImageInteractions(inner, img);
+      updateThumbActiveState();
+    }
+
+    // 修改上传成功的回调
+    document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const f = document.getElementById('fileInput').files[0];
+      if (!f) { showNotification('请选择文件', 'error'); return; }
+      const fd = new FormData();
+      fd.append('image', f, f.name);
+      const resDiv = document.getElementById('uploadResult');
+      resDiv.innerText = '上传中...';
+      try {
+        const resp = await fetch('/upload', { method:'POST', body: fd });
+        const j = await resp.json();
+        if (j.ok) {
+          resDiv.innerText = '上传成功: ' + j.filename;
+          showNotification('图片上传成功', 'success');
+          // 清空文件输入框
+          document.getElementById('fileInput').value = '';
+          
+          // 等待一小段时间让后端保存完成
+          setTimeout(async () => {
+            await loadImages();
+            showNotification('图片已添加到列表中', 'success');
+          }, 500);
+        } else {
+          resDiv.innerText = '上传失败: ' + (j.error||'未知');
+          showNotification('上传失败: ' + (j.error||'未知'), 'error');
+        }
+      } catch (e) {
+        resDiv.innerText = '上传异常: ' + e.message;
+        showNotification('上传异常: ' + e.message, 'error');
+      }
+    });
+
+    /* 新增：定时刷新图片列表（可选） */
+    function startAutoRefresh() {
+      // 每10秒自动刷新一次图片列表
+      setInterval(async () => {
+        if (document.visibilityState === 'visible') {
+          try {
+            await loadImages();
+          } catch (e) {
+            console.log('自动刷新失败:', e);
+          }
+        }
+      }, 10000); // 10秒
+    }
+
+    // 在init函数中启动自动刷新
+    async function init() {
+      try {
+        await loadConnectionStats();
+        await loadDevices();
+        await loadImages();
+        // 启动自动刷新
+        startAutoRefresh();
+        // 原来的刷新间隔只刷新设备列表
+        refreshInterval = setInterval(async () => { 
+          await loadDevices(); 
+          await loadConnectionStats(); 
+        }, 5000);
+      } catch (e) {
+        console.error('初始化异常', e);
+      }
+    }
+
+    function renderViewerEmpty(){
+      const inner = document.getElementById('viewerInner');
+      inner.innerHTML = '<div style="color:var(--muted)">暂无图片，请上传或请求要图</div>';
+      document.getElementById('viewerOverlay').innerText = '-- 时间戳 --';
+    }
+
+    // 计算并渲染当前缩略图组（从 thumbGroupStart 开始，取 THUMB_GROUP_SIZE 张）
+    // function renderThumbGroup(){
+    //   const windowEl = document.getElementById('thumbWindow');
+    //   windowEl.innerHTML = '';
+    //   if (!imagesList || imagesList.length === 0) return;
+    //   // 校准 thumbGroupStart
+    //   if (thumbGroupStart < 0) thumbGroupStart = 0;
+    //   if (thumbGroupStart > Math.max(0, imagesList.length - 1)) thumbGroupStart = Math.max(0, imagesList.length - 1);
+    //   const group = imagesList.slice(thumbGroupStart, thumbGroupStart + THUMB_GROUP_SIZE);
+    //   group.forEach((name, localIdx) => {
+    //     const globalIdx = thumbGroupStart + localIdx;
+    //     const item = document.createElement('div');
+    //     item.className = 'thumb-item';
+    //     item.dataset.name = name;
+    //     item.dataset.index = globalIdx;
+    //     const img = document.createElement('img');
+    //     img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+    //     img.alt = name;
+    //     item.appendChild(img);
+    //     const cap = document.createElement('div');
+    //     cap.className = 'thumb-caption';
+    //     cap.innerText = name.length>18 ? name.slice(0,18)+'…' : name;
+    //     item.appendChild(cap);
+
+    //     item.onclick = () => {
+    //       // 直接设置全局索引
+    //       setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
+    //     };
+
+    //     windowEl.appendChild(item);
+    //   });
+    //   updateThumbActiveState();
+    //   updateStripArrowState();
+    //   // 设置 thumbWindow transform（reset）
+    //   updateThumbWindowTransform();
+    // }
 
     function updateThumbWindowTransform(){
       // We show the group (thumbGroupStart) as the visible group, so thumbWindow transform = 0
