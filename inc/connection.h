@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <cstring>
+#include <atomic>
 
 
 class MyQueue{
@@ -55,9 +56,10 @@ struct ConnectionContext {
     pthread_t read_thread;
     int connfd;
     char device_id[18];  // 设备ID，17位编码，初始为空
+    std::atomic<bool> is_connection_alive;
 
     
-    ConnectionContext(int fd) : connfd(fd) {
+    ConnectionContext(int fd) : connfd(fd), is_connection_alive(true) {
         queue = std::make_unique<MyQueue>();
     }
     
@@ -113,6 +115,8 @@ std::vector<std::string> get_all_device_ids();
  * @brief 根据设备ID查找连接
  */
 ConnectionContext* find_connection_by_device_id(const std::string& device_id);
+
+ConnectionContext* find_connection_by_fd(int fd);
 
 /**
  * @brief 获取连接统计信息

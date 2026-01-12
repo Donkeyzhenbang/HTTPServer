@@ -46,6 +46,15 @@ ConnectionContext* find_connection_by_device_id(const std::string& device_id) {
     return nullptr;
 }
 
+ConnectionContext* find_connection_by_fd(int fd) {
+    std::lock_guard<std::mutex> lock(connection_manager_mutex);
+    auto it = connection_manager.find(fd);
+    if (it != connection_manager.end()) {
+        return it->second.get();
+    }
+    return nullptr;
+}
+
 size_t get_connection_count() {
     std::lock_guard<std::mutex> lock(connection_manager_mutex);
     return connection_manager.size();

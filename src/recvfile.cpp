@@ -127,38 +127,7 @@ static void remove_connection_context(int fd) {
     connection_manager.erase(fd);
 }
 
-/**
- * @brief 等待心跳包协议
- * 
- * @param fd 
- * @return int 
- */
-// int waitForHeartBeat(int fd) 
-// {
-//     int len = read(fd,buffer,1024);
-//     if(len < 0) {
-//         //出错
-//         printf("Heart Socket Read出错\n");
-//         exit(EXIT_FAILURE);
-//         // return -1;
-//     }
-//     int ret;
-//     if((ret = CheckFrameFull(buffer, len))<0) {
-//         printf("帧解析出错，不完整，错误码%d\n",ret);
-//         deBugFrame(buffer,len);
-//         exit(EXIT_FAILURE);
-//         // return -1;
-//     }
-//     u_int8 frameType,packetType;
-//     getFramePacketType(buffer, &frameType, &packetType);
-//     if(frameType == 0x09 && packetType == 0xE6) {
-//         printf("接收到心跳协议\n");
-//         deBugFrame(buffer,len);
-//         return 0;
-//     }
-//     printf("收到其他包，没有收到心跳协议\n");
-//     return -2;
-// }
+
 
 /**
  * @brief 等待B342协议
@@ -223,11 +192,13 @@ void StartReadThread(ConnectionContext* pContext)
                 else {
                     printf("Socket Read出错\n");
                 }
+                context->is_connection_alive = false;
                 return (void*) 0;
                 break;
             }
             else if (len == 0){
                 printf("客户端关闭连接\n");
+                context->is_connection_alive = false;
                 sleep(3);
                 exit(EXIT_FAILURE);
                 return (void*)0;
@@ -254,33 +225,66 @@ void StartReadThread(ConnectionContext* pContext)
 
 
 /**
- * @brief 读socket，必须解析出一个包，才能够返回，否则就会一直阻塞在这里运行。
+ * @brief 改进版：读socket，区分空闲状态和接收中状态
  * 
  * @param sockfd 
  * @param pPacket 
  * @param pQueue 连接的队列
- * @return int 返回0代表正常，其他代表错误
+ * @param pIsConnectionAlive 指向连接是否存活的标志
+ * @return int 返回0代表正常，-1代表连接断开，-2代表接收超时
  */
-int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue)
+int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive)
 {
     enum Rx_Status {Rx_Sync_1,Rx_Sync_2,Rx_Length_1,Rx_Length_2,Rx_Data,Rx_End};
     enum Rx_Status rx_status = Rx_Sync_1;
     unsigned short DataSize;//应接收的数据字节
     unsigned short RxDataNum = 0;//已接收的数据字节
     bool packetBufferStatus = false;//
-    int cnt = 0;
+    
+    // 分离两个计数器
+    int packet_timeout_cnt = 0;       // 接收包过程中的超时计数（严格）
+    
     while(!packetBufferStatus){
         
-        int size = pQueue->size();
-        // printf("管道里还有多少字节%d\n",size);
-        if(size == 0) {
-            // sleep(1);
-            struct timespec req = {0, 200000000L}; // 100 毫秒
-            nanosleep(&req, (struct timespec *)NULL);
-            cnt ++;
-        }
-        if(cnt >= 15) //!注意这里死循环 会造成bug:客户端主动断联服务器对应线程无法退出
+        // 1. 检查TCP物理连接是否已由读线程标记为断开
+        if(pIsConnectionAlive != NULL && pIsConnectionAlive->load() == false) {
+            printf("检测到读线程已断开连接，退出解析\n");
             return -1;
+        }
+
+        int size = pQueue->size();
+        
+        // 2. 队列为空时的处理逻辑
+        if(size == 0) {
+            struct timespec req = {0, 100000000L}; // 100 毫秒
+            nanosleep(&req, (struct timespec *)NULL);
+
+            // --- 核心修改逻辑开始 ---
+            if (rx_status == Rx_Sync_1) {
+                // Case A: 处于【空闲状态】 (还在等包头第一个字节)
+                // 允许无限等待，或者依赖 TCP Keepalive。
+                packet_timeout_cnt = 0;  // 重置超时计数器
+                continue;
+            }
+            else {
+                // Case B: 处于【接收中状态】 (已经收到了 0xA5，包收到一半卡住了)
+                packet_timeout_cnt++;
+                
+                // 100ms * 30 = 3秒。如果3秒内没把剩下的包传完，认为坏包或客户端挂掉
+                if (packet_timeout_cnt >= 30) {
+                    printf("接收报文超时中断 (状态机卡在状态: %d)\n", rx_status);
+                    return -1; // 报文传输中断，断开连接
+                }
+            }
+            // --- 核心修改逻辑结束 ---
+            continue;
+        }
+
+        // 3. 队列有数据，开始处理
+        // 只要读到了数据，就重置由于卡顿产生的超时计数
+        packet_timeout_cnt = 0;
+
+        // 处理队列中的数据
         for(int i=0;i<size;i++) {
             unsigned char rx_temp = pQueue->front();
             pQueue->pop();
@@ -299,45 +303,42 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue)
                     pPacket->packetBuffer[2] = rx_temp;
                     break;
                 case Rx_Length_2:
-                    DataSize += rx_temp*256 + 27;//!注意这里分包也要对包长进行处理更改
+                    DataSize += rx_temp*256 + 27;
                     pPacket->packetLength =  DataSize;
                     DataSize -= 5;
                     rx_status = Rx_Data;
                     pPacket->packetBuffer[3] = rx_temp;
-                    // printf("DataSize : %d \n", DataSize);
                     RxDataNum = 0;
                     break;
                 case Rx_Data:
                     ++ RxDataNum;
                     pPacket->packetBuffer[3+RxDataNum] = rx_temp;
-                    // printf("RxDataNum : %d \n", RxDataNum);  
                     rx_status =  RxDataNum == DataSize?Rx_End:Rx_Data;
                     break;
                 case Rx_End:
-                    // printf("RxDataNum : %d \n", RxDataNum);   
                     pPacket->packetBuffer[3+RxDataNum+1] = rx_temp;
                     if( rx_temp != 0x96 ) {
-                        printf("中间错误\n");
-                        return -2;
+                        printf("包尾校验错误: %02X\n", rx_temp);
+                        rx_status = Rx_Sync_1;
+                        // 校验失败，丢弃当前包，继续接收下一个包
+                        i = size;
+                        continue;
                     }else{
                         packetBufferStatus = true;
                     }
                     rx_status = Rx_Sync_1;
-                    i = size;//退出循环
+                    i = size;
                     break;
             }
         }
-        if(packetBufferStatus) {//调试接口
-            // packetBufferStatus = 0;
-            // printf("完成分包\n");
+        
+        if(packetBufferStatus) {
             int ret = CheckFrameFull(pPacket->packetBuffer,pPacket->packetLength);
-            // deBugFrame(pPacket->packetBuffer,pPacket->packetLength);
             if(-1 == ret) {
-                printf("校验错误\n");
-                deBugFrame(pPacket->packetBuffer,pPacket->packetLength);
-                return -3;
+                printf("整体帧校验错误\n");
+                return -2;
             }
-            // printf("退出分包程序\n");
+            return 0;
         }
     }
     return 0;
@@ -464,13 +465,22 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
         return -1;
     }
     
+    // 获取连接状态标志
+    ConnectionContext* context = find_connection_by_fd(fd);
+    if (!context) {
+        printf("错误：找不到连接 %d 的上下文\n", fd);
+        free(pPhotoBuffer);
+        return -1;
+    }
+    
     do {
         do{
             // Packet_t* pPacket = new Packet_t; 
             unique_ptr<Packet_t> pPacket(new Packet_t);//需要这种方式进行初始化
             // unique_ptr<Packet_t> pPacket = make_unique<Packet_t>();//C++14，才有make_unique
 
-            recv_and_resolve(fd, pPacket.get(), pQueue);
+            // recv_and_resolve(fd, pPacket.get(), pQueue);
+            int ret = recv_and_resolve(fd, pPacket.get(), pQueue, &context->is_connection_alive);
             //从包中解析
             getFramePacketType(pPacket->packetBuffer, &frameType, &packetType);
             // printf("frameType=0x%x, packetType=0x%x\n",frameType,packetType);
@@ -592,7 +602,8 @@ void *HandleClient(void *arg) {
             break;
         }
         
-        int ret = recv_and_resolve(connfd, pPacket, pQueue);
+        // int ret = recv_and_resolve(connfd, pPacket, pQueue);
+        int ret = recv_and_resolve(connfd, pPacket, pQueue, &context->is_connection_alive);
         printf("返回值%d, times = %d\n", ret, ++times);
         if (-1 == ret) {
             close(connfd);
