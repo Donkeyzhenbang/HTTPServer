@@ -52,3 +52,7 @@ cd /home/jym/code/cpp/personal-project/gw-server/bin
 scp ./bin/SocketServer jym@47.121.121.86:/home/jym/
 # scp ./bin/SocketServer mv@47.122.114.144:/home/mv/
 ```
+## 代码行数检测
+```sh
+wc -l `find src inc -name "*.cpp";find src inc -name "*.h"`
+```
