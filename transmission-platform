@@ -1,0 +1,192 @@
+# 定义上游服务器（负载均衡集群）
+upstream backend_servers {
+    # 使用最少连接数算法，适合长连接场景
+    least_conn;
+    
+    # 主后端服务器（当前你的可执行文件）
+    server 127.0.0.1:52487 max_fails=3 fail_timeout=30s;
+    
+    # 可添加更多后端服务器实现负载均衡
+    # server 192.168.1.101:52487;
+    # server 192.168.1.102:52487;
+    
+    # 保持连接设置（针对设备长连接优化）
+    keepalive 32;
+}
+
+upstream frontend_servers {
+    server 127.0.0.1:8080;
+    
+    # 如果有多台前端服务器
+    # server 192.168.1.101:8080;
+    # server 192.168.1.102:8080;
+}
+
+# 静态资源缓存配置
+proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=image_cache:100m 
+                 inactive=365d max_size=10g use_temp_path=off;
+
+# HTTP服务器块
+server {
+    listen 80;
+    server_name your-domain.com;  # 替换为你的域名或IP
+    server_tokens off;  # 隐藏Nginx版本信息
+    
+    # Gzip压缩配置
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript 
+               application/javascript application/xml+rss application/json
+               image/svg+xml;
+
+    # 根目录静态文件服务
+    location / {
+        proxy_pass http://frontend_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 启用WebSocket支持（如果前端有需要）
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # ========== 静态资源优化（关键部分） ==========
+    # 1. 图片缓存（解决加载慢的核心）
+    location ~* \.(jpg|jpeg|png|gif|ico|webp|svg)$ {
+        # 开启缓存
+        proxy_cache image_cache;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 304 365d;  # 缓存365天
+        proxy_cache_valid any 1h;       # 其他状态码缓存1小时
+        
+        # 缓存锁，防止多个请求同时回源
+        proxy_cache_lock on;
+        proxy_cache_lock_timeout 5s;
+        
+        # 缓存状态头（调试用）
+        add_header X-Cache-Status $upstream_cache_status;
+        
+        # 浏览器缓存（非常重要！）
+        expires max;
+        add_header Cache-Control "public, immutable";
+        
+        # 如果缓存未命中，从后端获取
+        proxy_pass http://frontend_servers;
+        proxy_set_header Host $host;
+        
+        # 图片处理优化
+        image_filter_buffer 10M;  # 增大图片处理缓冲区
+    }
+
+    # 2. CSS/JS缓存
+    location ~* \.(css|js)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        
+        proxy_pass http://frontend_servers;
+        proxy_set_header Host $host;
+    }
+
+    # 3. 字体文件缓存
+    location ~* \.(woff|woff2|ttf|eot)$ {
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+        
+        proxy_pass http://frontend_servers;
+        proxy_set_header Host $host;
+    }
+
+    # ========== API路由代理 ==========
+    # 设备连接API（后端52487端口）
+    location /api/ {
+        # 负载均衡到后端服务器
+        proxy_pass http://backend_servers;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 设备连接可能需要较长时间
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        
+        # 禁用缓存
+        proxy_cache off;
+        expires -1;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+
+    # 上传文件处理
+    location /upload {
+        # 直接代理到前端服务器处理上传
+        proxy_pass http://frontend_servers;
+        
+        # 增大上传文件大小限制
+        client_max_body_size 50M;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 上传可能需要较长时间
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # 上传的文件访问
+    location /uploads/ {
+        # 专门的静态文件服务，不经过应用服务器
+        alias /path/to/your/project/web/uploads/;  # 替换为你的实际上传目录
+        
+        # 启用缓存
+        expires max;
+        add_header Cache-Control "public, immutable";
+        
+        # 防盗链（可选）
+        # valid_referers none blocked server_names;
+        # if ($invalid_referer) {
+        #     return 403;
+        # }
+        
+        # 自动生成缩略图（需要安装nginx-image-filter模块）
+        # location ~* ^/uploads/(.+)\.(jpg|jpeg|png|gif)$ {
+        #     set $width 300;
+        #     set $height 200;
+        #     image_filter resize $width $height;
+        # }
+    }
+
+    # ========== 健康检查端点 ==========
+    location /health {
+        access_log off;
+        
+        # 检查前端服务
+        proxy_pass http://frontend_servers/health;
+        
+        # 也检查后端服务
+        location /health/backend {
+            proxy_pass http://backend_servers;
+        }
+    }
+
+    # ========== 错误页面 ==========
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}
