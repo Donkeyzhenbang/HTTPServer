@@ -30,7 +30,8 @@
 ## 主机访问
 - netstat -ano | findstr :8888 检查本地8888端口是否被监听
 - SSH正向代理 ssh -L8888:localhost:80 jym@192.168.126.128 将本地8888端口转发到服务器的80端口也即是Nginx服务入口
-- 修改nginx配置后，需要sudo nginx -t 查看语法对错，然后使用sudo systemctl restart nginx即可         
+- 修改nginx配置后，需要sudo nginx -t 查看语法对错，然后使用sudo systemctl restart nginx即可 
+- ssh -L8888:localhost:80 jym@192.168.126.128        
 
 ## tmux
 - tmux ls 
@@ -64,7 +65,7 @@ wc -l `find . -name "*.cpp";find . -name "*.h";find . -name "*.py";find . -name 
 - 测试传图中断可用处理
 - 任何错误处理都不能影响主程序继续接受其他链接
 - 测试主动要图
-- 
+- 后续需要添加GTEST测试
 
 ## 等待心跳包协议
 ```cpp
@@ -216,5 +217,54 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic
         }
     }
     return 0;
+}
+```
+
+## 客户端B341协议修正
+```cpp
+int waitForB341(int fd) 
+{
+    int len = read(fd, buffer, 1024);
+    if(len < 0) {
+        printf("B341 Socket Read出错\n");
+        return -1;
+    }
+    
+    int ret;
+    if((ret = CheckFrameFull(buffer, len)) < 0) {
+        printf("帧解析出错，不完整，错误码%d\n", ret);
+        deBugFrame(buffer, len);
+        return -1;
+    }
+    
+    u_int8 frameType, packetType;
+    getFramePacketType(buffer, &frameType, &packetType);
+    
+    if(frameType == 0x07 && packetType == 0xEE) {
+        printf("接收到B341协议\n");
+        deBugFrame(buffer, len);
+        
+        // 提取通道号 - 根据B341报文格式
+        // 计算偏移量：
+        // Sync(2) + Packet_Length(2) + CMD_ID(17) + Frame_Type(1) + Packet_Type(1) + Frame_No(1) = 24字节
+        // Channel_No是第25个字节（从1开始计数），索引为24（从0开始）
+        
+        if(len >= 25) {  // 确保报文足够长
+            u_int8 channelNo = buffer[24];  // 第25个字节是通道号
+            printf("B341报文中的通道号: %d\n", channelNo);
+            
+            // 如果需要，这里可以保存通道号到全局变量或返回
+            // global_channel = channelNo;  // 假设有全局变量
+            
+            // 返回通道号作为成功（正整数）或0
+            return (int)channelNo;
+        } else {
+            printf("B341报文长度不足，无法提取通道号\n");
+            return -3;
+        }
+    }
+    
+    printf("收到其他包，没有收到B341\n");
+    return -2;
 }
 ```
