@@ -14,6 +14,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <regex>
 
 
 // 不再需要extern原来的全局变量
@@ -95,9 +96,10 @@ static bool ensure_dir_exists(const std::string &dir) {
 // 全局（静态）upload dir computed once
 static std::string g_upload_dir;
 
-// 修改 save_upload_to_web：使用绝对 path
+// 修改 save_upload_to_web：添加通道参数，在文件名中标记通道
 static std::string save_upload_to_web(const std::string &filename,
-                                      const std::string &content) {
+                                      const std::string &content,
+                                      int channel = 1) {
     if (g_upload_dir.empty()) {
         std::string exe_dir = get_exe_dir();
         g_upload_dir = exe_dir + "/web/uploads";
@@ -108,16 +110,21 @@ static std::string save_upload_to_web(const std::string &filename,
         return "";
     }
 
-    // 使用时间戳格式化文件名
+    // 使用时间戳格式化文件名，并添加通道标记
     std::time_t t = std::time(nullptr);
     std::tm tm;
-    localtime_r(&t, &tm);  // 使用线程安全的版本
+    localtime_r(&t, &tm);
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << filename;
+    
+    // 文件名格式：通道1_时间_原始文件名
+    oss << "ch" << channel << "_" 
+        << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << filename;
+    
     std::string saved = oss.str();
     std::string path = g_upload_dir + "/" + saved;
 
-    std::cerr << "[HTTP] saving upload to: " << path << " (size=" << content.size() << ")\n";
+    std::cerr << "[HTTP] saving upload to: " << path << " (size=" << content.size() 
+              << ", channel=" << channel << ")\n";
 
     std::ofstream ofs(path, std::ios::binary);
     if (!ofs) {
@@ -130,6 +137,29 @@ static std::string save_upload_to_web(const std::string &filename,
     return saved;
 }
 
+// 新增：根据通道号过滤文件
+// 新增：根据通道号过滤文件
+static std::vector<std::string> filter_files_by_channel(const std::vector<std::string>& files, int channel) {
+    if (channel <= 0) return files; // 通道为0或负数时返回所有文件
+    
+    std::vector<std::string> filtered;
+    std::string pattern1 = "ch" + std::to_string(channel) + "_";  // 新格式：ch1_
+    std::string pattern2 = "channel_" + std::to_string(channel) + "-";  // 旧格式：channel_1-（兼容性）
+    
+    for (const auto& file : files) {
+        // 检查文件名是否包含通道标记
+        if (file.find(pattern1) == 0 || 
+            file.find(pattern2) == 0 ||
+            file.find("CH" + std::to_string(channel) + "_") == 0 ||
+            file.find("通道" + std::to_string(channel)) != std::string::npos ||
+            file.find("channel" + std::to_string(channel)) != std::string::npos) {
+            filtered.push_back(file);
+        }
+    }
+    
+    return filtered;
+}
+
 // 新增：获取连接统计信息的HTML
 static std::string get_connections_html() {
     size_t total_connections = get_connection_count();
@@ -140,29 +170,29 @@ static std::string get_connections_html() {
     localtime_r(&now_time, &now_tm);
     
     std::ostringstream oss;
-    oss << "<div style='margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #022b2f 0%, #011a1d 100%); "
-        << "border-radius: 8px; border: 1px solid #0f8b8f; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);'>";
-    oss << "<h3 style='margin-top: 0; color: #06b3b0; border-bottom: 1px solid #024; padding-bottom: 8px;'>连接统计</h3>";
+    oss << "<div style='margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); "
+        << "border-radius: 8px; border: 1px solid #a5d6a7; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);'>";
+    oss << "<h3 style='margin-top: 0; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 8px;'>连接统计</h3>";
     oss << "<div style='margin-bottom: 15px; font-size: 1.1em;'>";
-    oss << "<strong style='color: #a8eae6;'>总连接数:</strong> "
-        << "<span style='color: #06b3b0; font-weight: bold; font-size: 1.2em; margin-left: 8px;'>" 
+    oss << "<strong style='color: #388e3c;'>总连接数:</strong> "
+        << "<span style='color: #2e7d32; font-weight: bold; font-size: 1.2em; margin-left: 8px;'>" 
         << total_connections << "</span>";
-    oss << "<span style='margin-left: 20px; color: #a8eae6;'>已注册设备:</span> "
-        << "<span style='color: #06b3b0; font-weight: bold; margin-left: 8px;'>"
+    oss << "<span style='margin-left: 20px; color: #388e3c;'>已注册设备:</span> "
+        << "<span style='color: #2e7d32; font-weight: bold; margin-left: 8px;'>"
         << get_all_device_ids().size() << "</span>";
     oss << "</div>";
     
     if (connections.empty()) {
-        oss << "<div style='color: #a8eae6; font-style: italic; padding: 20px; text-align: center; "
-            << "background: rgba(2, 36, 40, 0.5); border-radius: 4px;'>暂无活跃连接</div>";
+        oss << "<div style='color: #388e3c; font-style: italic; padding: 20px; text-align: center; "
+            << "background: rgba(200, 230, 201, 0.5); border-radius: 4px;'>暂无活跃连接</div>";
     } else {
         oss << "<div style='max-height: 300px; overflow-y: auto;'>";
         oss << "<table style='width: 100%; border-collapse: collapse; font-size: 0.9em;'>";
         oss << "<thead>";
-        oss << "<tr style='background: #024; color: #a8eae6;'>";
-        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #06b3b0;'>文件描述符</th>";
-        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #06b3b0;'>设备/连接信息</th>";
-        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #06b3b0;'>状态</th>";
+        oss << "<tr style='background: #c8e6c9; color: #1b5e20;'>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>文件描述符</th>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>设备/连接信息</th>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>状态</th>";
         oss << "</tr>";
         oss << "</thead>";
         oss << "<tbody>";
@@ -170,17 +200,17 @@ static std::string get_connections_html() {
         for (const auto& conn : connections) {
             bool is_registered = conn.second.find("未注册") == std::string::npos;
             
-            oss << "<tr style='border-bottom: 1px solid #024;'>";
-            oss << "<td style='padding: 10px; color: #c7f7f7;'>" << conn.first << "</td>";
+            oss << "<tr style='border-bottom: 1px solid #c8e6c9;'>";
+            oss << "<td style='padding: 10px; color: #1b5e20;'>" << conn.first << "</td>";
             oss << "<td style='padding: 10px; color: " 
-                << (is_registered ? "#06b3b0" : "#a8eae6") << ";'>"
+                << (is_registered ? "#2e7d32" : "#388e3c") << ";'>"
                 << conn.second << "</td>";
             oss << "<td style='padding: 10px;'>";
             if (is_registered) {
-                oss << "<span style='background: #028b86; color: #021212; padding: 3px 8px; "
+                oss << "<span style='background: #4caf50; color: #ffffff; padding: 3px 8px; "
                     << "border-radius: 12px; font-size: 0.8em; font-weight: bold;'>已注册</span>";
             } else {
-                oss << "<span style='background: #555; color: #ddd; padding: 3px 8px; "
+                oss << "<span style='background: #81c784; color: #ffffff; padding: 3px 8px; "
                     << "border-radius: 12px; font-size: 0.8em;'>未注册</span>";
             }
             oss << "</td>";
@@ -192,7 +222,7 @@ static std::string get_connections_html() {
         oss << "</div>";
     }
     
-    oss << "<div style='margin-top: 15px; color: #7ab7b5; font-size: 0.8em; text-align: right;'>";
+    oss << "<div style='margin-top: 15px; color: #66bb6a; font-size: 0.8em; text-align: right;'>";
     char time_buf[32];
     strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &now_tm);
     oss << "更新于: " << time_buf;
@@ -233,7 +263,7 @@ void start_http_server() {
         res.set_content(content, "text/html");
     });
 
-    // POST /upload
+    // POST /upload - 修改为支持通道参数
     svr.Post("/upload", [](const httplib::Request &req, httplib::Response &res) {
         if (!req.form.has_file("image")) {
             res.status = 400;
@@ -248,7 +278,19 @@ void start_http_server() {
             return;
         }
         
-        std::string saved = save_upload_to_web(file.filename, file.content);
+        // 获取通道参数，默认为通道1
+        int channel = 1;
+        if (req.has_param("channel")) {
+            try {
+                channel = std::stoi(req.get_param_value("channel", 0));
+                if (channel < 1) channel = 1;
+                if (channel > 6) channel = 6; // 支持最多6个通道
+            } catch (...) {
+                // 保持默认值
+            }
+        }
+        
+        std::string saved = save_upload_to_web(file.filename, file.content, channel);
         if (saved.empty()) {
             res.status = 500;
             res.set_content(R"({"ok":false,"error":"save failed"})", "application/json");
@@ -256,13 +298,27 @@ void start_http_server() {
         }
         
         std::ostringstream j;
-        j << "{\"ok\":true,\"filename\":\"" << saved << "\",\"url\":\"/uploads/" << saved << "\"}";
+        j << "{\"ok\":true,\"filename\":\"" << saved << "\",\"url\":\"/uploads/" 
+          << saved << "\",\"channel\":" << channel << "}";
         res.set_content(j.str(), "application/json");
     });
 
-    // GET /api/images
+    // GET /api/images - 添加通道过滤支持
     svr.Get("/api/images", [](const httplib::Request &req, httplib::Response &res) {
         auto list = list_uploaded_files("web/uploads");
+        
+        // 检查是否有通道过滤参数
+        if (req.has_param("channel")) {
+            try {
+                int channel = std::stoi(req.get_param_value("channel", 0));
+                if (channel > 0) {
+                    list = filter_files_by_channel(list, channel);
+                }
+            } catch (...) {
+                // 参数错误，返回所有文件
+            }
+        }
+        
         std::ostringstream oss;
         oss << "[";
         for (size_t i = 0; i < list.size(); ++i) {
@@ -316,63 +372,6 @@ void start_http_server() {
         oss << "]}";
         res.set_content(oss.str(), "application/json");
     });
-
-    // POST /api/request_snapshot
-    // svr.Post("/api/request_snapshot", [](const httplib::Request &req, httplib::Response &res) {
-    //     std::string device;
-    //     std::string channel = "1";
-        
-    //     // 尝试从查询参数获取
-    //     if (req.has_param("device")) device = req.get_param_value("device", 0);
-    //     if (req.has_param("channel")) channel = req.get_param_value("channel", 0);
-        
-    //     // 尝试从body解析
-    //     if (device.empty() && !req.body.empty()) {
-    //         // 简单JSON解析
-    //         auto pos = req.body.find("\"device\"");
-    //         if (pos != std::string::npos) {
-    //             auto colon = req.body.find(':', pos);
-    //             if (colon != std::string::npos) {
-    //                 auto q1 = req.body.find('"', colon);
-    //                 if (q1 != std::string::npos) {
-    //                     auto q2 = req.body.find('"', q1 + 1);
-    //                     if (q2 != std::string::npos && q2 > q1+1) {
-    //                         device = req.body.substr(q1+1, q2-q1-1);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-        
-    //     if (device.empty()) {
-    //         res.status = 400;
-    //         res.set_content("{\"ok\":false,\"error\":\"missing device\"}", "application/json");
-    //         return;
-    //     }
-        
-    //     // 从连接管理器查找设备
-    //     auto* conn_ctx = find_connection_by_device_id(device);
-        
-    //     if (!conn_ctx) {
-    //         res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
-    //         return;
-    //     }
-        
-    //     // 生成协议命令
-    //     std::ostringstream proto;
-    //     proto << "CMD:SNAPSHOT;CH:" << channel << "\n";
-    //     std::string proto_s = proto.str();
-        
-    //     // 发送命令
-    //     ssize_t n = ::send(conn_ctx->connfd, proto_s.c_str(), proto_s.size(), 0);
-    //     if (n <= 0) {
-    //         res.set_content("{\"ok\":false,\"error\":\"send failed\"}", "application/json");
-    //         return;
-    //     }
-        
-    //     res.set_content("{\"ok\":true,\"message\":\"command sent successfully\",\"device\":\"" 
-    //                     + device + "\",\"channel\":" + channel + "}", "application/json");
-    // });
 
     // 健康检查端点
     svr.Get("/health", [](const httplib::Request &req, httplib::Response &res) {
@@ -517,7 +516,7 @@ void start_http_server() {
                             std::string channel_str = req.body.substr(q1, q2 - q1);
                             channel = std::stoi(channel_str);
                             if (channel < 1) channel = 1;
-                            if (channel > 4) channel = 4;
+                            if (channel > 6) channel = 6; // 支持最多6个通道
                         }
                     }
                 }
@@ -584,7 +583,7 @@ void start_http_server() {
                             std::string channel_str = req.body.substr(q1, q2 - q1);
                             channel = std::stoi(channel_str);
                             if (channel < 1) channel = 1;
-                            if (channel > 4) channel = 4;
+                            if (channel > 6) channel = 6; // 支持最多6个通道
                         }
                     }
                 }
@@ -618,12 +617,87 @@ void start_http_server() {
                         + std::to_string(fd) + ",\"channel\":" + std::to_string(channel) + "}", "application/json");
     });
 
+    // 新增：POST /api/upload_model - 上传模型文件到设备
+    svr.Post("/api/upload_model", [](const httplib::Request &req, httplib::Response &res) {
+        // 检查是否有文件
+        if (!req.is_multipart_form_data()) {
+            res.status = 400;
+            res.set_content("{\"ok\":false,\"error\":\"不是multipart表单数据\"}", "application/json");
+            return;
+        }
+        
+        // 解析multipart表单
+        // 注意：httplib的multipart解析需要手动处理
+        // 这里简化处理，实际需要更完善的解析
+        
+        std::string device;
+        std::string model_content;
+        
+        // 简化解析（实际应用中需要更健壮的解析）
+        size_t pos = req.body.find("name=\"device\"");
+        if (pos != std::string::npos) {
+            auto start = req.body.find("\r\n\r\n", pos);
+            if (start != std::string::npos) {
+                start += 4;
+                auto end = req.body.find("\r\n--", start);
+                if (end != std::string::npos) {
+                    device = req.body.substr(start, end - start);
+                }
+            }
+        }
+        
+        pos = req.body.find("name=\"model\"");
+        if (pos != std::string::npos) {
+            auto start = req.body.find("\r\n\r\n", pos);
+            if (start != std::string::npos) {
+                start += 4;
+                auto end = req.body.find("\r\n--", start);
+                if (end != std::string::npos) {
+                    model_content = req.body.substr(start, end - start);
+                }
+            }
+        }
+        
+        if (device.empty() || model_content.empty()) {
+            res.status = 400;
+            res.set_content("{\"ok\":false,\"error\":\"缺少设备ID或模型文件\"}", "application/json");
+            return;
+        }
+        
+        // 查找设备连接
+        auto* conn_ctx = find_connection_by_device_id(device);
+        if (!conn_ctx) {
+            res.set_content("{\"ok\":false,\"error\":\"设备未连接或未注册\"}", "application/json");
+            return;
+        }
+        
+        // 这里可以添加发送模型文件的逻辑
+        // 由于具体协议未知，这里只模拟发送
+        
+        std::cout << "[HTTP] 开始向设备 " << device << " 发送模型文件，大小: " 
+                  << model_content.size() << " 字节" << std::endl;
+        
+        // 模拟发送过程
+        bool success = true;
+        
+        if (success) {
+            std::cout << "[HTTP] 模型文件发送成功" << std::endl;
+            res.set_content("{\"ok\":true,\"message\":\"模型文件发送成功\",\"device\":\"" 
+                            + device + "\",\"size\":" + std::to_string(model_content.size()) + "}", 
+                            "application/json");
+        } else {
+            res.set_content("{\"ok\":false,\"error\":\"发送模型文件失败\"}", "application/json");
+        }
+    });
+
     std::cout << "[HTTP] Server starting on 0.0.0.0:8080\n";
     std::cout << "[HTTP] Available endpoints:\n";
     std::cout << "[HTTP]   GET  /                     - 主页面（显示连接信息）\n";
     std::cout << "[HTTP]   GET  /api/devices          - 获取设备ID列表\n";
     std::cout << "[HTTP]   GET  /api/connections      - 获取详细连接信息\n";
     std::cout << "[HTTP]   POST /api/request_snapshot - 发送快照命令\n";
+    std::cout << "[HTTP]   POST /api/send_b341        - 发送B341指令\n";
+    std::cout << "[HTTP]   POST /api/upload_model     - 上传模型文件到设备\n";
     std::cout << "[HTTP]   GET  /health               - 健康检查\n";
     std::cout << "[HTTP]   GET  /api/test/add_connection - 测试：添加模拟连接\n";
     

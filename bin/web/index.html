@@ -1,3 +1,5 @@
+[file name]: index.html
+[file content begin]
 <!doctype html>
 <html lang="zh-CN">
 <head>
@@ -7,11 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg: #031416;
-      --panel: rgba(3,37,38,0.6);
-      --accent: #06b3b0;
-      --accent-2: #07d4d0;
-      --muted: #bfeee9;
+      --bg: #e6f4e6; /* 改为淡绿色基调 */
+      --panel: rgba(232, 245, 233, 0.8); /* 淡绿色面板 */
+      --accent: #2e7d32; /* 深绿色主题色 */
+      --accent-2: #4caf50; /* 亮绿色 */
+      --muted: #2e4630; /* 深绿色文字 */
       --card-radius: 10px;
       --topbar-h: 64px;
       --gap: 12px;
@@ -21,8 +23,8 @@
     html,body{height:100%;margin:0;padding:0;font-family:"Inter", Arial, sans-serif;-webkit-font-smoothing:antialiased}
     body{
       background:
-        radial-gradient(900px 240px at 10% 8%, rgba(6,179,176,0.03), transparent 9%),
-        linear-gradient(180deg, rgba(0,8,10,0.62), rgba(0,6,8,0.96)),
+        radial-gradient(900px 240px at 10% 8%, rgba(76, 175, 80, 0.1), transparent 9%),
+        linear-gradient(180deg, rgba(230, 244, 230, 0.9), rgba(220, 240, 220, 0.95)),
         var(--bg);
       color:var(--muted);
       overflow:hidden;
@@ -36,19 +38,19 @@
       justify-content:space-between;
       gap:12px;
       padding: 0 20px;
-      border-bottom: 1px solid rgba(6,179,176,0.06);
-      background: linear-gradient(180deg, rgba(2,18,20,0.5), rgba(2,12,14,0.2));
-      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+      border-bottom: 1px solid rgba(46, 125, 50, 0.1);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(240, 255, 240, 0.85));
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
       z-index:50;
     }
     .brand{display:flex;align-items:center;gap:14px}
-    .logo{width:46px;height:46px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#021212;font-weight:800;box-shadow:0 8px 26px rgba(6,179,176,0.08)}
+    .logo{width:46px;height:46px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#ffffff;font-weight:800;box-shadow:0 8px 26px rgba(46, 125, 50, 0.15)}
     .title{font-size:18px;color:var(--accent);font-weight:700}
-    .subtitle{font-size:12px;color:rgba(191,238,233,0.7)}
+    .subtitle{font-size:12px;color:rgba(46, 70, 48, 0.7)}
 
     .nav-tabs{display:flex;gap:8px}
     .nav-tabs button{background:transparent;border:0;color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;transition:all .15s}
-    .nav-tabs button.active{background:linear-gradient(90deg, rgba(6,179,176,0.12), rgba(6,179,176,0.06));color:var(--accent);box-shadow:0 6px 18px rgba(6,179,176,0.06)}
+    .nav-tabs button.active{background:linear-gradient(90deg, rgba(46, 125, 50, 0.15), rgba(46, 125, 50, 0.08));color:var(--accent);box-shadow:0 6px 18px rgba(46, 125, 50, 0.08)}
 
     /* layout fills remaining height */
     .main {
@@ -61,23 +63,23 @@
     }
 
     .panel {
-      background: linear-gradient(180deg, rgba(3,28,29,0.46), rgba(2,18,20,0.28));
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(245, 255, 245, 0.7));
       border-radius: var(--card-radius);
       padding: 14px;
-      border:1px solid rgba(6,179,176,0.06);
-      box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+      border:1px solid rgba(46, 125, 50, 0.1);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.1);
       overflow: hidden;
     }
 
     /* left */
     .left-panel{ display:flex; flex-direction:column; gap:12px; min-height:0; }
     .left-panel h3{margin:0;color:var(--accent);font-weight:700}
-    .upload-box{background:rgba(0,0,0,0.06);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
-    input[type=file]{width:100%;padding:8px;border-radius:6px;background: rgba(255,255,255,0.02);color:var(--muted);border:none;outline:none;cursor:pointer}
+    .upload-box{background:rgba(255,255,255,0.7);padding:10px;border-radius:8px;border:1px solid rgba(46, 125, 50, 0.1)}
+    input[type=file]{width:100%;padding:8px;border-radius:6px;background: rgba(255,255,255,0.9);color:var(--muted);border:1px solid rgba(46, 125, 50, 0.2);outline:none;cursor:pointer}
     .device-list{overflow:auto;padding-right:6px}
-    .device{display:flex;justify-content:space-between;align-items:flex-start;padding:10px;border-radius:8px;margin-bottom:10px;background:linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
-    .device strong{color:#fff}
-    .device .meta{font-size:12px;color:#7ab7b5;margin-top:6px}
+    .device{display:flex;justify-content:space-between;align-items:flex-start;padding:10px;border-radius:8px;margin-bottom:10px;background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,255,240,0.8));border:1px solid rgba(46, 125, 50, 0.1)}
+    .device strong{color:var(--muted)}
+    .device .meta{font-size:12px;color:#5d8c5f;margin-top:6px}
 
     /* center */
     .center{ display:flex; flex-direction:column; gap:12px; min-height:0; }
@@ -89,43 +91,233 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.06));
-      border:1px solid rgba(6,179,176,0.06);
+      background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(245,255,245,0.8));
+      border:1px solid rgba(46, 125, 50, 0.1);
     }
-    .viewer-inner{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative; touch-action:none; background: linear-gradient(180deg, rgba(2,10,10,0.05), transparent); }
-    .viewer-inner img{ max-width:100%; max-height:100%; transition:transform .16s ease; user-select:none; -webkit-user-drag:none; will-change:transform; border-radius:6px; box-shadow: 0 14px 48px rgba(0,0,0,0.6) }
+    .viewer-inner{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative; touch-action:none; background: linear-gradient(180deg, rgba(255,255,255,0.8), transparent); }
+    .viewer-inner img{ max-width:100%; max-height:100%; transition:transform .16s ease; user-select:none; -webkit-user-drag:none; will-change:transform; border-radius:6px; box-shadow: 0 14px 48px rgba(0,0,0,0.15) }
 
-    .viewer-overlay{ position:absolute; left:16px; top:14px; z-index:40; background:rgba(0,0,0,0.24); padding:6px 10px;border-radius:6px;color:#fff;font-size:12px;border:1px solid rgba(255,255,255,0.03);backdrop-filter: blur(6px) }
-    .viewer-watermark{ position:absolute; right:16px; bottom:14px; z-index:40; font-size:12px; color:rgba(255,255,255,0.5); background: linear-gradient(90deg, rgba(0,0,0,0.12), rgba(0,0,0,0.06)); padding:4px 8px; border-radius:6px }
+    .viewer-overlay{ position:absolute; left:16px; top:14px; z-index:40; background:rgba(255,255,255,0.9); padding:6px 10px;border-radius:6px;color:var(--muted);font-size:12px;border:1px solid rgba(46, 125, 50, 0.1);backdrop-filter: blur(6px) }
+    .viewer-watermark{ position:absolute; right:16px; bottom:14px; z-index:40; font-size:12px; color:rgba(46, 70, 48, 0.7); background: rgba(255,255,255,0.8); padding:4px 8px; border-radius:6px }
 
-    .arrow{ position:absolute; top:50%; transform:translateY(-50%); z-index:50; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.03); cursor:pointer; color:var(--muted); font-weight:700; transition: transform .12s, background .12s }
-    .arrow:hover{ transform:translateY(-50%) scale(1.06); background: rgba(6,179,176,0.08); color:var(--accent) }
+    .arrow{ position:absolute; top:50%; transform:translateY(-50%); z-index:50; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.9); border:1px solid rgba(46, 125, 50, 0.2); cursor:pointer; color:var(--muted); font-weight:700; transition: transform .12s, background .12s }
+    .arrow:hover{ transform:translateY(-50%) scale(1.06); background: rgba(46, 125, 50, 0.15); color:var(--accent) }
     .arrow.left{ left: 14px } .arrow.right{ right:14px }
 
     /* thumbnail strip: will render groups of 5 */
-    .thumb-strip{ height:106px; display:flex; gap:10px; align-items:center; padding:8px; overflow:hidden; background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01)); border-radius:8px; position:relative}
+    .thumb-strip{ height:106px; display:flex; gap:10px; align-items:center; padding:8px; overflow:hidden; background: rgba(255,255,255,0.8); border-radius:8px; position:relative; border:1px solid rgba(46, 125, 50, 0.1)}
     .thumb-window{ display:flex; gap:10px; transition: transform .28s cubic-bezier(.2,.9,.2,1); will-change:transform; }
-    .thumb-item{ width:160px; height:90px; flex: 0 0 160px; border-radius:8px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.02); cursor:pointer; transition: transform .12s, box-shadow .12s }
+    .thumb-item{ width:160px; height:90px; flex: 0 0 160px; border-radius:8px; overflow:hidden; position:relative; border:1px solid rgba(46, 125, 50, 0.2); cursor:pointer; transition: transform .12s, box-shadow .12s }
     .thumb-item img{ width:100%; height:100%; object-fit:cover; display:block }
-    .thumb-item.active{ border:2px solid var(--accent); transform: translateY(-6px); box-shadow: 0 18px 48px rgba(6,179,176,0.08) }
-    .thumb-caption{ position:absolute; left:8px; bottom:8px; font-size:11px; color:#fff; background:rgba(0,0,0,0.32); padding:4px 6px; border-radius:4px }
+    .thumb-item.active{ border:2px solid var(--accent); transform: translateY(-6px); box-shadow: 0 18px 48px rgba(46, 125, 50, 0.15) }
+    .thumb-caption{ position:absolute; left:8px; bottom:8px; font-size:11px; color:#fff; background:rgba(0,0,0,0.5); padding:4px 6px; border-radius:4px }
 
     /* group nav small arrows on sides of strip */
-    .strip-arrow{ position:absolute; top:50%; transform:translateY(-50%); width:34px;height:34px;border-radius:6px;background:rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;border:1px solid rgba(255,255,255,0.02); }
-    .strip-arrow:hover{ background:rgba(6,179,176,0.06); color:var(--accent) }
+    .strip-arrow{ position:absolute; top:50%; transform:translateY(-50%); width:34px;height:34px;border-radius:6px;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;border:1px solid rgba(46, 125, 50, 0.2); }
+    .strip-arrow:hover{ background:rgba(46, 125, 50, 0.15); color:var(--accent) }
     .strip-arrow.left{ left:6px } .strip-arrow.right{ right:6px }
 
     /* right panel */
     .right-panel{ display:flex; flex-direction:column; gap:12px; min-height:0; }
     .card-title{ color:var(--accent); font-weight:700; margin-bottom:6px }
-    .date-picker input{ width:100%; padding:10px; border-radius:8px; background: rgba(0,0,0,0.06); border:1px solid rgba(255,255,255,0.02); color:var(--muted) }
+    
+    /* 日期选择器 - 改进样式 */
+    .date-picker-container {
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      border: 1px solid rgba(46, 125, 50, 0.2);
+      padding: 10px;
+    }
+    .date-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .date-header button {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .date-header button:hover {
+      background: rgba(46, 125, 50, 0.1);
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .calendar-day-header {
+      text-align: center;
+      font-size: 11px;
+      color: #5d8c5f;
+      padding: 4px;
+      font-weight: 600;
+    }
+    .calendar-day {
+      text-align: center;
+      padding: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .calendar-day:hover {
+      background: rgba(46, 125, 50, 0.1);
+    }
+    .calendar-day.selected {
+      background: var(--accent);
+      color: white;
+    }
+    .calendar-day.today {
+      border: 1px solid var(--accent);
+    }
+    .calendar-day.other-month {
+      color: #b0bec5;
+    }
+    
     .ops{ display:flex; gap:8px; flex-wrap:wrap }
-    .ops button{ flex:1 1 48%; padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02); background:transparent; color:var(--muted); cursor:pointer; font-weight:700 }
-    .ops button.primary{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212; box-shadow:0 8px 26px rgba(6,179,176,0.08) }
+    .ops button{ flex:1 1 48%; padding:10px;border-radius:8px;border:1px solid rgba(46, 125, 50, 0.2); background:transparent; color:var(--muted); cursor:pointer; font-weight:700; transition: all 0.2s }
+    .ops button:hover { background: rgba(46, 125, 50, 0.05); }
+    .ops button.primary{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#ffffff; box-shadow:0 8px 26px rgba(46, 125, 50, 0.15) }
+    .ops button.primary:hover { background: linear-gradient(90deg,var(--accent-2),var(--accent)); }
 
-    .channels{ display:flex; gap:8px; }
-    .channel-btn{ flex:1; padding:10px;border-radius:8px;background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02); cursor:pointer; color:var(--muted); font-weight:700 }
-    .channel-btn.active{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212 }
+    /* 通道选择器 - 可滚动式 */
+    .channels-container {
+      position: relative;
+      max-height: 160px;
+      overflow: hidden;
+    }
+    .channels-scroll {
+      max-height: 160px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .channels-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .channels-scroll::-webkit-scrollbar-thumb {
+      background: rgba(46, 125, 50, 0.3);
+      border-radius: 3px;
+    }
+    .channels-scroll::-webkit-scrollbar-track {
+      background: rgba(46, 125, 50, 0.05);
+    }
+    .channels{ display:flex; flex-direction: column; gap:6px; }
+    .channel-btn{ padding:10px;border-radius:8px;background:rgba(255,255,255,0.9); border:1px solid rgba(46, 125, 50, 0.2); cursor:pointer; color:var(--muted); font-weight:700; transition: all 0.2s; text-align: left; }
+    .channel-btn:hover{ background: rgba(46, 125, 50, 0.08); }
+    .channel-btn.active{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#ffffff; border-color: var(--accent); }
+
+    /* 弹窗样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: white;
+      border-radius: 12px;
+      width: 500px;
+      max-width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: white;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-body {
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .modal-footer {
+      padding: 16px 20px;
+      background: #f5f9f5;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .form-group select, 
+    .form-group input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(46, 125, 50, 0.3);
+      background: white;
+      color: var(--muted);
+    }
+    .log-output {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
+    .log-output .log-entry {
+      margin-bottom: 4px;
+      padding: 2px 0;
+    }
+    .log-output .log-entry.info {
+      color: #2e7d32;
+    }
+    .log-output .log-entry.error {
+      color: #d32f2f;
+    }
+    .log-output .log-entry.warning {
+      color: #ed6c02;
+    }
 
     @media (max-width:1100px){
       .main{ grid-template-columns: 300px 1fr; grid-template-rows: calc(100vh - var(--topbar-h) - 320px) 320px; }
@@ -142,8 +334,8 @@
     }
 
     ::-webkit-scrollbar{ height:10px; width:10px }
-    ::-webkit-scrollbar-thumb{ background: rgba(6,179,176,0.12); border-radius:6px }
-    ::-webkit-scrollbar-track{ background: transparent }
+    ::-webkit-scrollbar-thumb{ background: rgba(46, 125, 50, 0.3); border-radius:6px }
+    ::-webkit-scrollbar-track{ background: rgba(46, 125, 50, 0.05) }
   </style>
 </head>
 <body>
@@ -164,7 +356,7 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:8px">
-      <button id="refreshAll" class="nav-action" title="刷新全部" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer">刷新</button>
+      <button id="refreshAll" class="nav-action" title="刷新全部" style="background:transparent;border:1px solid rgba(46, 125, 50, 0.2);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer">刷新</button>
     </div>
   </div>
 
@@ -177,7 +369,7 @@
         <form id="uploadForm">
           <input id="fileInput" type="file" name="image" accept="image/*" aria-label="上传图片" />
           <div style="height:8px"></div>
-          <button type="submit" class="btn small" style="width:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#021212; border:none; padding:10px; border-radius:8px; font-weight:700;">上传图片</button>
+          <button type="submit" class="btn small" style="width:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#ffffff; border:none; padding:10px; border-radius:8px; font-weight:700;">上传图片</button>
         </form>
         <div id="uploadResult" style="margin-top:8px;font-size:13px;color:var(--muted)"></div>
       </div>
@@ -196,7 +388,7 @@
         <div class="viewer-inner" id="viewerInner" aria-live="polite" aria-label="大图展示">
           <div style="color:var(--muted)">大图加载中...</div>
         </div>
-        <div class="viewer-watermark">示例水印</div>
+        <div class="viewer-watermark">输电全景管控平台</div>
 
         <div class="arrow left" id="prevBtn" aria-label="上一张">‹</div>
         <div class="arrow right" id="nextBtn" aria-label="下一张">›</div>
@@ -215,33 +407,69 @@
     <aside class="panel right-panel" aria-label="操作面板">
       <div>
         <div class="card-title">日期选择</div>
-        <div class="date-picker"><input id="datePicker" type="date" aria-label="选择日期" /></div>
+        <div class="date-picker-container" id="datePickerContainer">
+          <!-- 日历将通过JavaScript动态生成 -->
+        </div>
       </div>
 
       <div>
         <div class="card-title">操作项</div>
         <div class="ops" role="group" aria-label="操作">
           <button id="grabBtn" class="primary" style="padding:10px 12px;">抓图</button>
-          <button id="playbackBtn">回放</button>
           <button id="downloadBtn">下载</button>
           <button id="fullBtn">全屏</button>
+          <button id="upgradeBtn">升级</button>
         </div>
       </div>
 
       <div>
         <div class="card-title">监拍通道</div>
-        <div class="channels" role="tablist" aria-label="通道选择">
-          <button class="channel-btn active" data-channel="1">通道 1</button>
-          <button class="channel-btn" data-channel="2">通道 2</button>
-          <button class="channel-btn" data-channel="3">通道 3</button>
-          <button class="channel-btn" data-channel="4">通道 4</button>
+        <div class="channels-container">
+          <div class="channels-scroll">
+            <div class="channels" id="channelsList" role="tablist" aria-label="通道选择">
+              <!-- 通道将通过JavaScript动态生成 -->
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style="margin-top:auto;font-size:12px;color:#7ab7b5">
+      <div style="margin-top:auto;font-size:12px;color:#5d8c5f">
         快捷提示：缩略图点击切换主图；双击主图重置缩放；滚轮缩放；放大时可拖动平移。
       </div>
     </aside>
+  </div>
+
+  <!-- 升级弹窗 -->
+  <div class="modal-overlay" id="upgradeModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span>模型文件升级</span>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="modelFile">选择模型文件</label>
+          <input type="file" id="modelFile" accept=".bin,.model,.pt,.pth,.onnx,.tflite">
+        </div>
+        <div class="form-group">
+          <label for="targetDevice">目标设备</label>
+          <select id="targetDevice">
+            <option value="">请选择设备...</option>
+            <!-- 设备列表将通过JavaScript动态填充 -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label>传输日志</label>
+          <div class="log-output" id="upgradeLog">
+            <div class="log-entry info">等待上传模型文件...</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelUpgrade" style="background:transparent;border:1px solid rgba(46, 125, 50, 0.3);color:var(--muted);padding:8px 16px;border-radius:6px;cursor:pointer">取消</button>
+        <button id="startUpgrade" style="background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">开始升级</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -259,6 +487,10 @@
     let isPanning = false;
     let panStart = {x:0,y:0};
     let refreshInterval;
+    let currentChannel = 1; // 当前选中的通道
+    let channels = [1, 2, 3, 4, 5, 6]; // 支持6个通道
+    let currentDate = new Date(); // 当前选中的日期
+    let filteredImagesByChannel = {}; // 按通道过滤的图片
 
     // 缩略图组管理
     const THUMB_GROUP_SIZE = 5;
@@ -270,76 +502,106 @@
     }
 
     /* 设备 */
-    // async function loadDevices() {
-    //   try {
-    //     const data = await fetchJSON('/api/devices');
-    //     const c = document.getElementById('devicesContainer');
-    //     c.innerHTML = '';
+    async function loadDevices() {
+      try {
+        const data = await fetchJSON('/api/devices');
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '';
 
-    //     if (!data.devices || data.devices.length === 0) {
-    //       const emptyMsg = document.createElement('div');
-    //       emptyMsg.className = 'device';
-    //       emptyMsg.innerHTML = `
-    //         <div style="text-align:center;width:100%;color:var(--muted)">
-    //           <div>当前无已注册设备</div>
-    //           <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
-    //         </div>
-    //       `;
-    //       c.appendChild(emptyMsg);
-    //       return;
-    //     }
+        if (!data.devices || data.devices.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.className = 'device';
+          emptyMsg.innerHTML = `
+            <div style="text-align:center;width:100%;color:var(--muted)">
+              <div>当前无已注册设备</div>
+              <div style="font-size:12px;color:#5d8c5f;margin-top:6px">总连接数: ${data.connections||0}</div>
+            </div>
+          `;
+          c.appendChild(emptyMsg);
+          
+          // 清空升级弹窗的设备列表
+          const targetDeviceSelect = document.getElementById('targetDevice');
+          targetDeviceSelect.innerHTML = '<option value="">请选择设备...</option>';
+          return;
+        }
 
-    //     data.devices.forEach(dev => {
-    //       const div = document.createElement('div');
-    //       div.className = 'device';
-    //       div.innerHTML = `
-    //         <div>
-    //           <strong>${dev}</strong>
-    //           <div class="meta">设备ID: ${dev}</div>
-    //         </div>
-    //         <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-    //           <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
-    //           <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
-    //         </div>
-    //       `;
-    //       const btn = div.querySelector('button');
-    //       btn.onclick = async () => {
-    //         btn.disabled = true;
-    //         const old = btn.innerHTML;
-    //         btn.innerText = '发送中…';
-    //         try {
-    //           const resp = await fetch('/api/request_snapshot', {
-    //             method:'POST',
-    //             headers:{'Content-Type':'application/json'},
-    //             body: JSON.stringify({ device: dev, channel: 1 })
-    //           });
-    //           const j = await resp.json();
-    //           if (j.ok) showNotification(`已向设备 ${dev} 发送要图指令`, 'success'); else showNotification(`发送失败: ${j.error || '未知'}`, 'error');
-    //         } catch(e) {
-    //           showNotification('请求失败: '+ e.message,'error');
-    //         } finally {
-    //           btn.disabled = false;
-    //           btn.innerHTML = old;
-    //         }
-    //       };
-    //       c.appendChild(div);
-    //     });
+        data.devices.forEach(dev => {
+          const div = document.createElement('div');
+          div.className = 'device';
+          div.innerHTML = `
+            <div>
+              <strong>${dev}</strong>
+              <div class="meta">设备ID: ${dev}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+              <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#ffffff;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
+              <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#ffffff;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
+            </div>
+          `;
+          
+          // 添加要图按钮事件
+          const btn = div.querySelector('button');
+          btn.onclick = async () => {
+            btn.disabled = true;
+            const old = btn.innerHTML;
+            btn.innerText = '发送中…';
+            try {
+              const resp = await fetch('/api/send_b341', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ device: dev, channel: currentChannel })
+              });
+              const j = await resp.json();
+              if (j.ok) {
+                showNotification(`已向设备 ${dev} 发送要图指令`, 'success');
+                // 等待3秒后刷新图片
+                setTimeout(async () => {
+                  await loadImages();
+                }, 3000);
+              } else {
+                showNotification(`发送失败: ${j.error || '未知'}`, 'error');
+              }
+            } catch(e) {
+              showNotification('请求失败: '+ e.message,'error');
+            } finally {
+              btn.disabled = false;
+              btn.innerHTML = old;
+            }
+          };
+          
+          c.appendChild(div);
+        });
 
-    //   } catch (e) {
-    //     console.error('加载设备失败', e);
-    //     const c = document.getElementById('devicesContainer');
-    //     c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
-    //   }
-    // }
+        // 填充升级弹窗的设备列表
+        const targetDeviceSelect = document.getElementById('targetDevice');
+        targetDeviceSelect.innerHTML = '<option value="">请选择设备...</option>';
+        data.devices.forEach(dev => {
+          const option = document.createElement('option');
+          option.value = dev;
+          option.textContent = dev;
+          targetDeviceSelect.appendChild(option);
+        });
+
+      } catch (e) {
+        console.error('加载设备失败', e);
+        const c = document.getElementById('devicesContainer');
+        c.innerHTML = '<div class="device" style="color:#f44336">加载设备列表失败，请检查服务器</div>';
+      }
+    }
 
     /* 图片加载与分组机制 */
     // async function loadImages() {
     //   try {
-    //     const arr = await fetchJSON('/api/images');
+    //     const arr = await fetchJSON('/api/images?_=' + Date.now());
     //     imagesList = Array.isArray(arr) ? arr : [];
-    //     // 选中最后一张（如果有）
+        
+    //     // 按通道过滤图片（这里假设图片名包含通道信息，如"ch1_xxx.jpg"）
+    //     filterImagesByChannel();
+        
+    //     // 如果有新图片，选择最后一张
     //     if (imagesList.length > 0) {
     //       setCurrentIndex(imagesList.length - 1, {autoAdjustGroup:true});
+    //       renderThumbGroup();
     //     } else {
     //       renderViewerEmpty();
     //       renderThumbGroup();
@@ -350,17 +612,19 @@
     //     renderThumbGroup();
     //   }
     // }
-    /* 图片加载与分组机制 */
+    // 修改 loadImages 函数，使其支持通道过滤
     async function loadImages() {
       try {
-        // 添加时间戳避免缓存，强制刷新
-        const arr = await fetchJSON('/api/images?_=' + Date.now());
+        // 添加通道参数到请求
+        const arr = await fetchJSON('/api/images?channel=' + currentChannel + '&_=' + Date.now());
         imagesList = Array.isArray(arr) ? arr : [];
+        
+        // 移除原有的 filterImagesByChannel 函数调用
+        // 因为现在后端已经直接返回过滤后的列表
         
         // 如果有新图片，选择最后一张
         if (imagesList.length > 0) {
           setCurrentIndex(imagesList.length - 1, {autoAdjustGroup:true});
-          // 同时刷新缩略图
           renderThumbGroup();
         } else {
           renderViewerEmpty();
@@ -373,10 +637,303 @@
       }
     }
 
+    // 按通道过滤图片
+    function filterImagesByChannel() {
+      filteredImagesByChannel = {};
+      channels.forEach(channel => {
+        filteredImagesByChannel[channel] = imagesList.filter(img => {
+          // 假设图片名包含"ch1"、"ch2"等通道信息
+          // 这里可以根据实际命名规则调整
+          return img.includes(`ch${channel}`) || img.includes(`CH${channel}`) || 
+                 img.includes(`通道${channel}`) || img.includes(`channel${channel}`);
+        });
+      });
+    }
+
+    // 初始化日历
+    function initCalendar() {
+      const container = document.getElementById('datePickerContainer');
+      renderCalendar(currentDate, container);
+    }
+
+    // 渲染日历
+    function renderCalendar(date, container) {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      
+      // 月份名称
+      const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月",
+                         "七月", "八月", "九月", "十月", "十一月", "十二月"];
+      
+      // 星期名称
+      const dayNames = ["日", "一", "二", "三", "四", "五", "六"];
+      
+      // 获取当月第一天是星期几
+      const firstDay = new Date(year, month, 1).getDay();
+      
+      // 获取当月天数
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      // 获取上个月天数
+      const prevMonthDays = new Date(year, month, 0).getDate();
+      
+      let html = `
+        <div class="date-header">
+          <button class="prev-month">‹</button>
+          <span style="font-weight:700;color:var(--accent)">${year}年 ${monthNames[month]}</span>
+          <button class="next-month">›</button>
+        </div>
+        <div class="calendar-grid">
+      `;
+      
+      // 星期标题
+      for (let i = 0; i < 7; i++) {
+        html += `<div class="calendar-day-header">${dayNames[i]}</div>`;
+      }
+      
+      // 上个月的日期
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const day = prevMonthDays - i;
+        html += `<div class="calendar-day other-month">${day}</div>`;
+      }
+      
+      // 当前月的日期
+      const today = new Date();
+      const isToday = (day) => {
+        return year === today.getFullYear() && 
+               month === today.getMonth() && 
+               day === today.getDate();
+      };
+      
+      const isSelected = (day) => {
+        return year === currentDate.getFullYear() && 
+               month === currentDate.getMonth() && 
+               day === currentDate.getDate();
+      };
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const todayClass = isToday(day) ? 'today' : '';
+        const selectedClass = isSelected(day) ? 'selected' : '';
+        html += `<div class="calendar-day ${todayClass} ${selectedClass}" data-day="${day}">${day}</div>`;
+      }
+      
+      // 下个月的日期（补齐网格）
+      const totalCells = 42; // 6行 * 7列
+      const cellsUsed = firstDay + daysInMonth;
+      const nextMonthDays = totalCells - cellsUsed;
+      
+      for (let day = 1; day <= nextMonthDays; day++) {
+        html += `<div class="calendar-day other-month">${day}</div>`;
+      }
+      
+      html += `</div>`;
+      container.innerHTML = html;
+      
+      // 添加事件监听
+      container.querySelector('.prev-month').addEventListener('click', () => {
+        currentDate = new Date(year, month - 1, 1);
+        renderCalendar(currentDate, container);
+      });
+      
+      container.querySelector('.next-month').addEventListener('click', () => {
+        currentDate = new Date(year, month + 1, 1);
+        renderCalendar(currentDate, container);
+      });
+      
+      // 日期点击事件
+      container.querySelectorAll('.calendar-day:not(.other-month)').forEach(dayEl => {
+        dayEl.addEventListener('click', () => {
+          const day = parseInt(dayEl.dataset.day);
+          currentDate = new Date(year, month, day);
+          renderCalendar(currentDate, container);
+          showNotification(`已选择日期: ${year}-${month+1}-${day}`, 'info');
+          // 这里可以添加按日期过滤图片的逻辑
+        });
+      });
+    }
+
+    // 初始化通道选择器
+    // function initChannels() {
+    //   const channelsList = document.getElementById('channelsList');
+    //   channelsList.innerHTML = '';
+      
+    //   channels.forEach(channel => {
+    //     const btn = document.createElement('button');
+    //     btn.className = `channel-btn ${channel === currentChannel ? 'active' : ''}`;
+    //     btn.dataset.channel = channel;
+    //     btn.textContent = `通道 ${channel}`;
+    //     btn.addEventListener('click', () => {
+    //       // 更新当前通道
+    //       currentChannel = channel;
+          
+    //       // 更新按钮状态
+    //       document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+    //       btn.classList.add('active');
+          
+    //       // 根据通道过滤图片
+    //       filterImagesByChannel();
+          
+    //       // 显示该通道的第一张图片（如果有）
+    //       const channelImages = filteredImagesByChannel[channel];
+    //       if (channelImages && channelImages.length > 0) {
+    //         // 查找该图片在原始列表中的索引
+    //         const imageName = channelImages[0];
+    //         const index = imagesList.indexOf(imageName);
+    //         if (index !== -1) {
+    //           setCurrentIndex(index, {autoAdjustGroup:true});
+    //         }
+    //       }
+          
+    //       showNotification(`已切换到通道 ${channel}`, 'info');
+    //     });
+        
+    //     channelsList.appendChild(btn);
+    //   });
+    // }
+    // 修改 initChannels 函数，简化通道切换逻辑
+    function initChannels() {
+      const channelsList = document.getElementById('channelsList');
+      channelsList.innerHTML = '';
+      
+      channels.forEach(channel => {
+        const btn = document.createElement('button');
+        btn.className = `channel-btn ${channel === currentChannel ? 'active' : ''}`;
+        btn.dataset.channel = channel;
+        btn.textContent = `通道 ${channel}`;
+        btn.addEventListener('click', async () => {
+          // 更新当前通道
+          currentChannel = channel;
+          
+          // 更新按钮状态
+          document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          // 更新页面显示
+          updateChannelDisplay();
+          
+          // 加载对应通道的图片
+          await loadImages();
+          
+          showNotification(`已切换到通道 ${channel}`, 'info');
+        });
+        
+        channelsList.appendChild(btn);
+      });
+    }
+
+    // 升级弹窗相关功能
+    function initUpgradeModal() {
+      const upgradeBtn = document.getElementById('upgradeBtn');
+      const upgradeModal = document.getElementById('upgradeModal');
+      const modalClose = document.getElementById('modalClose');
+      const cancelUpgrade = document.getElementById('cancelUpgrade');
+      const startUpgrade = document.getElementById('startUpgrade');
+      const modelFileInput = document.getElementById('modelFile');
+      const upgradeLog = document.getElementById('upgradeLog');
+      
+      // 打开弹窗
+      upgradeBtn.addEventListener('click', () => {
+        upgradeModal.classList.add('active');
+        addLogEntry('准备上传模型文件...', 'info');
+      });
+      
+      // 关闭弹窗
+      function closeModal() {
+        upgradeModal.classList.remove('active');
+        // 重置表单
+        modelFileInput.value = '';
+        document.getElementById('targetDevice').selectedIndex = 0;
+        upgradeLog.innerHTML = '<div class="log-entry info">等待上传模型文件...</div>';
+      }
+      
+      modalClose.addEventListener('click', closeModal);
+      cancelUpgrade.addEventListener('click', closeModal);
+      
+      // 开始升级
+      startUpgrade.addEventListener('click', async () => {
+        const file = modelFileInput.files[0];
+        const device = document.getElementById('targetDevice').value;
+        
+        if (!file) {
+          addLogEntry('错误：请选择模型文件', 'error');
+          return;
+        }
+        
+        if (!device) {
+          addLogEntry('错误：请选择目标设备', 'error');
+          return;
+        }
+        
+        addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
+        addLogEntry(`目标设备: ${device}`, 'info');
+        addLogEntry('正在准备传输...', 'info');
+        
+        // 模拟传输过程
+        simulateUpgradeProcess(file, device, upgradeLog);
+      });
+      
+      // 点击弹窗外部关闭
+      upgradeModal.addEventListener('click', (e) => {
+        if (e.target === upgradeModal) {
+          closeModal();
+        }
+      });
+    }
+    
+    // 添加日志条目
+    function addLogEntry(message, type = 'info') {
+      const logOutput = document.getElementById('upgradeLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logOutput.appendChild(entry);
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+    
+    // 模拟升级过程
+    function simulateUpgradeProcess(file, device, logOutput) {
+      // 清空日志
+      logOutput.innerHTML = '';
+      
+      const steps = [
+        {delay: 500, message: '正在验证模型文件格式...', type: 'info'},
+        {delay: 1000, message: '文件验证通过', type: 'info'},
+        {delay: 800, message: `正在连接设备: ${device}...`, type: 'info'},
+        {delay: 1200, message: '设备连接成功', type: 'info'},
+        {delay: 600, message: '开始传输模型文件...', type: 'info'},
+        {delay: 2000, message: `传输进度: 25%`, type: 'info'},
+        {delay: 2000, message: `传输进度: 50%`, type: 'info'},
+        {delay: 2000, message: `传输进度: 75%`, type: 'info'},
+        {delay: 2000, message: `传输进度: 100%`, type: 'info'},
+        {delay: 1000, message: '文件传输完成', type: 'info'},
+        {delay: 800, message: '正在校验文件完整性...', type: 'info'},
+        {delay: 1200, message: '文件校验通过', type: 'info'},
+        {delay: 600, message: '正在更新设备固件...', type: 'warning'},
+        {delay: 3000, message: '固件更新完成', type: 'info'},
+        {delay: 800, message: '正在重启设备...', type: 'warning'},
+        {delay: 2000, message: '设备重启成功', type: 'info'},
+        {delay: 600, message: '模型升级完成！', type: 'info'},
+      ];
+      
+      let totalDelay = 0;
+      steps.forEach(step => {
+        setTimeout(() => {
+          addLogEntry(step.message, step.type);
+        }, totalDelay);
+        totalDelay += step.delay;
+      });
+      
+      // 完成后显示成功消息
+      setTimeout(() => {
+        showNotification('模型升级完成！', 'success');
+      }, totalDelay);
+    }
+
     /* 刷新按钮功能增强 */
+    // 修改刷新按钮，保持当前通道
     document.getElementById('refreshAll').addEventListener('click', async () => {
       try {
-        // 清除可能的缓存
+        // 清除缓存
         imagesList = [];
         currentIndex = -1;
         thumbGroupStart = 0;
@@ -385,31 +942,26 @@
         const viewerInner = document.getElementById('viewerInner');
         viewerInner.innerHTML = '<div style="color:var(--muted)">刷新中...</div>';
         
-        // 并行刷新设备和图片
+        // 并行刷新设备和当前通道的图片
         await Promise.all([
           loadDevices(),
-          loadImages()
+          loadImages()  // 这里会自动使用当前通道
         ]);
-        showNotification('已刷新图片和设备列表', 'success');
+        showNotification(`已刷新通道 ${currentChannel} 的图片和设备列表`, 'success');
       } catch (e) {
         console.error('刷新失败', e);
         showNotification('刷新失败: ' + e.message, 'error');
       }
     });
 
-    /* 修改缩略图点击事件，强制刷新图片 */
     function attachThumbClickEvents() {
       const windowEl = document.getElementById('thumbWindow');
       const items = Array.from(windowEl.querySelectorAll('.thumb-item'));
       
       items.forEach(item => {
-        // 移除旧的事件监听器
         item.onclick = null;
-        
-        // 添加新的事件监听器
         item.onclick = () => {
           const globalIdx = parseInt(item.dataset.index);
-          // 重新加载图片，避免缓存
           const img = item.querySelector('img');
           if (img) {
             img.src = '/uploads/' + encodeURIComponent(item.dataset.name) + '?_=' + Date.now();
@@ -419,7 +971,6 @@
       });
     }
 
-    // 修改renderThumbGroup函数，调用attachThumbClickEvents
     function renderThumbGroup(){
       const windowEl = document.getElementById('thumbWindow');
       windowEl.innerHTML = '';
@@ -437,7 +988,6 @@
         item.dataset.index = globalIdx;
         
         const img = document.createElement('img');
-        // 添加时间戳避免缓存
         img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
         img.alt = name;
         item.appendChild(img);
@@ -450,155 +1000,13 @@
         windowEl.appendChild(item);
       });
       
-      // 更新事件监听器
       attachThumbClickEvents();
       updateThumbActiveState();
       updateStripArrowState();
       updateThumbWindowTransform();
     }
 
-    // 修改renderMainImage函数，添加时间戳
-    function renderMainImage(name){
-      const inner = document.getElementById('viewerInner');
-      inner.innerHTML = '';
-      scale = 1; translate = {x:0,y:0};
-      const img = document.createElement('img');
-      // 添加时间戳避免缓存
-      img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
-      img.alt = name;
-      img.draggable = false;
-      
-      // 添加图片加载失败处理
-      img.onerror = function() {
-        console.log('图片加载失败，重试...');
-        // 1秒后重试
-        setTimeout(() => {
-          this.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
-        }, 1000);
-      };
-      
-      img.onload = function() {
-        console.log('图片加载成功:', name);
-        // 图片加载成功后的处理
-      };
-      
-      inner.appendChild(img);
-      document.getElementById('viewerOverlay').innerText = name;
-      setupImageInteractions(inner, img);
-      updateThumbActiveState();
-    }
-
-    // 修改上传成功的回调
-    document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const f = document.getElementById('fileInput').files[0];
-      if (!f) { showNotification('请选择文件', 'error'); return; }
-      const fd = new FormData();
-      fd.append('image', f, f.name);
-      const resDiv = document.getElementById('uploadResult');
-      resDiv.innerText = '上传中...';
-      try {
-        const resp = await fetch('/upload', { method:'POST', body: fd });
-        const j = await resp.json();
-        if (j.ok) {
-          resDiv.innerText = '上传成功: ' + j.filename;
-          showNotification('图片上传成功', 'success');
-          // 清空文件输入框
-          document.getElementById('fileInput').value = '';
-          
-          // 等待一小段时间让后端保存完成
-          setTimeout(async () => {
-            await loadImages();
-            showNotification('图片已添加到列表中', 'success');
-          }, 500);
-        } else {
-          resDiv.innerText = '上传失败: ' + (j.error||'未知');
-          showNotification('上传失败: ' + (j.error||'未知'), 'error');
-        }
-      } catch (e) {
-        resDiv.innerText = '上传异常: ' + e.message;
-        showNotification('上传异常: ' + e.message, 'error');
-      }
-    });
-
-    /* 新增：定时刷新图片列表（可选） */
-    function startAutoRefresh() {
-      // 每10秒自动刷新一次图片列表
-      setInterval(async () => {
-        if (document.visibilityState === 'visible') {
-          try {
-            await loadImages();
-          } catch (e) {
-            console.log('自动刷新失败:', e);
-          }
-        }
-      }, 10000); // 10秒
-    }
-
-    // 在init函数中启动自动刷新
-    async function init() {
-      try {
-        await loadConnectionStats();
-        await loadDevices();
-        await loadImages();
-        // 启动自动刷新
-        startAutoRefresh();
-        // 原来的刷新间隔只刷新设备列表
-        refreshInterval = setInterval(async () => { 
-          await loadDevices(); 
-          await loadConnectionStats(); 
-        }, 5000);
-      } catch (e) {
-        console.error('初始化异常', e);
-      }
-    }
-
-    function renderViewerEmpty(){
-      const inner = document.getElementById('viewerInner');
-      inner.innerHTML = '<div style="color:var(--muted)">暂无图片，请上传或请求要图</div>';
-      document.getElementById('viewerOverlay').innerText = '-- 时间戳 --';
-    }
-
-    // 计算并渲染当前缩略图组（从 thumbGroupStart 开始，取 THUMB_GROUP_SIZE 张）
-    // function renderThumbGroup(){
-    //   const windowEl = document.getElementById('thumbWindow');
-    //   windowEl.innerHTML = '';
-    //   if (!imagesList || imagesList.length === 0) return;
-    //   // 校准 thumbGroupStart
-    //   if (thumbGroupStart < 0) thumbGroupStart = 0;
-    //   if (thumbGroupStart > Math.max(0, imagesList.length - 1)) thumbGroupStart = Math.max(0, imagesList.length - 1);
-    //   const group = imagesList.slice(thumbGroupStart, thumbGroupStart + THUMB_GROUP_SIZE);
-    //   group.forEach((name, localIdx) => {
-    //     const globalIdx = thumbGroupStart + localIdx;
-    //     const item = document.createElement('div');
-    //     item.className = 'thumb-item';
-    //     item.dataset.name = name;
-    //     item.dataset.index = globalIdx;
-    //     const img = document.createElement('img');
-    //     img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
-    //     img.alt = name;
-    //     item.appendChild(img);
-    //     const cap = document.createElement('div');
-    //     cap.className = 'thumb-caption';
-    //     cap.innerText = name.length>18 ? name.slice(0,18)+'…' : name;
-    //     item.appendChild(cap);
-
-    //     item.onclick = () => {
-    //       // 直接设置全局索引
-    //       setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
-    //     };
-
-    //     windowEl.appendChild(item);
-    //   });
-    //   updateThumbActiveState();
-    //   updateStripArrowState();
-    //   // 设置 thumbWindow transform（reset）
-    //   updateThumbWindowTransform();
-    // }
-
     function updateThumbWindowTransform(){
-      // We show the group (thumbGroupStart) as the visible group, so thumbWindow transform = 0
-      // but keep for potential animation: set transform to 0
       const windowEl = document.getElementById('thumbWindow');
       windowEl.style.transform = `translateX(0px)`;
     }
@@ -614,7 +1022,6 @@
     }
 
     function updateStripArrowState(){
-      // 左箭头可用当 thumbGroupStart > 0
       const left = document.getElementById('stripPrev');
       const right = document.getElementById('stripNext');
       left.style.opacity = thumbGroupStart > 0 ? '1' : '0.28';
@@ -623,55 +1030,45 @@
       right.style.pointerEvents = (thumbGroupStart + THUMB_GROUP_SIZE) < imagesList.length ? 'auto' : 'none';
     }
 
-    // 将 globalIndex 设置为当前图，并可选是否自动调整缩略图组
     function setCurrentIndex(globalIndex, opts = { autoAdjustGroup: true, smoothScroll: false }){
       if (!imagesList || imagesList.length === 0) { currentIndex = -1; renderViewerEmpty(); return; }
       if (globalIndex < 0) globalIndex = 0;
       if (globalIndex > imagesList.length - 1) globalIndex = imagesList.length - 1;
       currentIndex = globalIndex;
 
-      // 计算需要显示的组起点（若 autoAdjustGroup 为 true）
       if (opts.autoAdjustGroup) {
         const desiredGroupStart = Math.floor(currentIndex / THUMB_GROUP_SIZE) * THUMB_GROUP_SIZE;
         if (desiredGroupStart !== thumbGroupStart) {
           thumbGroupStart = desiredGroupStart;
           renderThumbGroup();
         } else {
-          // same group: only update active highlight
           updateThumbActiveState();
         }
       } else {
         updateThumbActiveState();
       }
 
-      // render main image
       const name = imagesList[currentIndex];
       renderMainImage(name);
-      // smoothScroll -> try to scroll the thumbnail container so active thumb is visible (not needed if group changed)
+      
       if (opts.smoothScroll) {
-        // find the active thumb element and scroll into view within the strip's visible area
         setTimeout(() => {
           const windowEl = document.getElementById('thumbWindow');
           const active = windowEl.querySelector(`.thumb-item[data-index='${currentIndex}']`);
           if (active) {
-            // scroll container (thumbStrip) to make active visible
             const strip = document.getElementById('thumbStrip');
             const stripInner = strip.querySelector('div[style]') || strip.querySelector('div');
-            // Use element.scrollIntoView with smooth behavior
             active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
           }
         }, 60);
       }
     }
 
-    // 切换到上一组或下一组（用于缩略图条边箭头）
     function shiftThumbGroup(deltaGroups){
       const newStart = thumbGroupStart + deltaGroups * THUMB_GROUP_SIZE;
       thumbGroupStart = Math.max(0, Math.min(newStart, Math.max(0, imagesList.length - 1)));
       renderThumbGroup();
-      // ensure if currentIndex not in new group, adjust it to group's first or keep
       if (currentIndex < thumbGroupStart || currentIndex >= thumbGroupStart + THUMB_GROUP_SIZE) {
-        // move currentIndex to the first item in the new group (or keep within bounds)
         const newIndex = Math.min(imagesList.length - 1, thumbGroupStart + 0);
         setCurrentIndex(newIndex, {autoAdjustGroup:false});
       }
@@ -685,10 +1082,24 @@
       img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
       img.alt = name;
       img.draggable = false;
+      
+      img.onerror = function() {
+        console.log('图片加载失败，重试...');
+        setTimeout(() => {
+          this.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+        }, 1000);
+      };
+      
       inner.appendChild(img);
       document.getElementById('viewerOverlay').innerText = name;
       setupImageInteractions(inner, img);
       updateThumbActiveState();
+    }
+
+    function renderViewerEmpty(){
+      const inner = document.getElementById('viewerInner');
+      inner.innerHTML = '<div style="color:var(--muted)">暂无图片，请上传或请求要图</div>';
+      document.getElementById('viewerOverlay').innerText = '-- 时间戳 --';
     }
 
     /* 缩放/拖动 */
@@ -733,7 +1144,6 @@
       container.onpointercancel = () => { isPanning = false; };
     }
 
-    /* prev/next behavior: 当到达 group 边界时会自动调整 thumbGroupStart */
     function showPrev(){
       if (imagesList.length === 0) return;
       const newIndex = Math.max(0, currentIndex - 1);
@@ -745,143 +1155,56 @@
       setCurrentIndex(newIndex, {autoAdjustGroup:true, smoothScroll:true});
     }
 
-    // 修改抓图按钮事件
-    document.getElementById('grabBtn').addEventListener('click', async () => {
-        const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
-        if (firstDeviceElem) {
-            const dev = firstDeviceElem.innerText;
-            // 获取当前选中的通道
-            const activeChannelBtn = document.querySelector('.channel-btn.active');
-            const channel = activeChannelBtn ? activeChannelBtn.dataset.channel : "1";
-            
-            // 显示发送状态
-            const oldText = document.getElementById('grabBtn').innerText;
-            document.getElementById('grabBtn').innerText = '发送中...';
-            document.getElementById('grabBtn').disabled = true;
-            
-            try {
-                // 使用新的B341 API
-                const response = await fetch('/api/send_b341', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        device: dev, 
-                        channel: parseInt(channel) 
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.ok) {
-                    showNotification(`已向设备 ${dev} 发送B341抓图指令`, 'success');
-                    // 等待3秒后自动刷新图片列表（给设备时间处理指令并返回图片）
-                    setTimeout(async () => {
-                        await loadImages();
-                        showNotification('正在检查新图片...', 'info');
-                    }, 3000);
-                } else {
-                    showNotification(`发送失败: ${result.error || '未知错误'}`, 'error');
-                }
-            } catch (error) {
-                showNotification('请求失败: ' + error.message, 'error');
-            } finally {
-                // 恢复按钮状态
-                document.getElementById('grabBtn').innerText = oldText;
-                document.getElementById('grabBtn').disabled = false;
-            }
-        } else {
-            showNotification('无可用设备，请等待设备连接', 'error');
-        }
-    });
-
-    // 修改设备列表中的"要图"按钮逻辑
-    function setupDeviceButtons() {
-        const deviceButtons = document.querySelectorAll('#devicesContainer .device button');
-        deviceButtons.forEach(btn => {
-            btn.onclick = async function() {
-                const deviceDiv = this.closest('.device');
-                const deviceId = deviceDiv.querySelector('strong').innerText;
-                const activeChannelBtn = document.querySelector('.channel-btn.active');
-                const channel = activeChannelBtn ? activeChannelBtn.dataset.channel : "1";
-                
-                const oldText = this.innerText;
-                this.innerText = '发送中...';
-                this.disabled = true;
-                
-                try {
-                    const response = await fetch('/api/send_b341', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            device: deviceId, 
-                            channel: parseInt(channel) 
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.ok) {
-                        showNotification(`已向设备 ${deviceId} 发送B341抓图指令`, 'success');
-                        // 等待后刷新图片
-                        setTimeout(async () => {
-                            await loadImages();
-                        }, 3000);
-                    } else {
-                        showNotification(`发送失败: ${result.error || '未知错误'}`, 'error');
-                    }
-                } catch (error) {
-                    showNotification('请求失败: ' + error.message, 'error');
-                } finally {
-                    this.innerText = oldText;
-                    this.disabled = false;
-                }
-            };
-        });
-    }
-
-    // 修改loadDevices函数，在设备加载完成后设置按钮
-    async function loadDevices() {
-      try {
-        const data = await fetchJSON('/api/devices');
-        const c = document.getElementById('devicesContainer');
-        c.innerHTML = '';
-
-        if (!data.devices || data.devices.length === 0) {
-          const emptyMsg = document.createElement('div');
-          emptyMsg.className = 'device';
-          emptyMsg.innerHTML = `
-            <div style="text-align:center;width:100%;color:var(--muted)">
-              <div>当前无已注册设备</div>
-              <div style="font-size:12px;color:#7ab7b5;margin-top:6px">总连接数: ${data.connections||0}</div>
-            </div>
-          `;
-          c.appendChild(emptyMsg);
-          return;
-        }
-
-        data.devices.forEach(dev => {
-          const div = document.createElement('div');
-          div.className = 'device';
-          div.innerHTML = `
-            <div>
-              <strong>${dev}</strong>
-              <div class="meta">设备ID: ${dev}</div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-              <span style="background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021212;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px">已注册</span>
-              <button class="btn small" style="margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021212;border:none;padding:6px 10px;border-radius:6px;">📷 要图</button>
-            </div>
-          `;
-          c.appendChild(div);
-        });
-
-        // 设置设备按钮事件
-        setupDeviceButtons();
-
-      } catch (e) {
-        console.error('加载设备失败', e);
-        const c = document.getElementById('devicesContainer');
-        c.innerHTML = '<div class="device" style="color:#ff6b6b">加载设备列表失败，请检查服务器</div>';
+    // 添加一个函数来更新页面中的通道显示
+    function updateChannelDisplay() {
+      // 可以在标题栏或其他位置显示当前通道
+      const subtitle = document.querySelector('.subtitle');
+      if (subtitle) {
+        subtitle.textContent = `在线监控 · 全景要图 · 设备管理 · 当前通道: ${currentChannel}`;
       }
     }
+
+    // 修改抓图按钮事件
+    // 修改抓图按钮，确保使用当前通道
+    document.getElementById('grabBtn').addEventListener('click', async () => {
+      const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
+      if (firstDeviceElem) {
+        const dev = firstDeviceElem.innerText;
+        
+        const oldText = document.getElementById('grabBtn').innerText;
+        document.getElementById('grabBtn').innerText = '发送中...';
+        document.getElementById('grabBtn').disabled = true;
+        
+        try {
+          const response = await fetch('/api/send_b341', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              device: dev, 
+              channel: currentChannel  // 使用当前选中的通道
+            })
+          });
+          
+          const result = await response.json();
+          if (result.ok) {
+            showNotification(`已向设备 ${dev} 发送B341抓图指令 (通道${currentChannel})`, 'success');
+            setTimeout(async () => {
+              await loadImages(); // 重新加载当前通道的图片
+              showNotification('正在检查新图片...', 'info');
+            }, 3000);
+          } else {
+            showNotification(`发送失败: ${result.error || '未知错误'}`, 'error');
+          }
+        } catch (error) {
+          showNotification('请求失败: ' + error.message, 'error');
+        } finally {
+          document.getElementById('grabBtn').innerText = oldText;
+          document.getElementById('grabBtn').disabled = false;
+        }
+      } else {
+        showNotification('无可用设备，请等待设备连接', 'error');
+      }
+    });
 
     document.getElementById('prevBtn').addEventListener('click', showPrev);
     document.getElementById('nextBtn').addEventListener('click', showNext);
@@ -894,27 +1217,36 @@
       }
     });
 
-    /* strip arrows control groups */
     document.getElementById('stripPrev').addEventListener('click', () => shiftThumbGroup(-1));
     document.getElementById('stripNext').addEventListener('click', () => shiftThumbGroup(1));
 
-    /* 上传 & 控件（保留接口） */
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('uploadForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const f = document.getElementById('fileInput').files[0];
-        if (!f) { showNotification('请选择文件', 'error'); return; }
+        if (!f) { 
+          showNotification('请选择文件', 'error'); 
+          return; 
+        }
+        
         const fd = new FormData();
         fd.append('image', f, f.name);
+        
+        // 添加通道参数
+        fd.append('channel', currentChannel);
+        
         const resDiv = document.getElementById('uploadResult');
         resDiv.innerText = '上传中...';
         try {
-          const resp = await fetch('/upload', { method:'POST', body: fd });
+          const resp = await fetch('/upload', { 
+            method: 'POST', 
+            body: fd 
+          });
           const j = await resp.json();
           if (j.ok) {
             resDiv.innerText = '上传成功: ' + j.filename;
             showNotification('图片上传成功', 'success');
-            await loadImages();
+            await loadImages(); // 重新加载当前通道的图片
           } else {
             resDiv.innerText = '上传失败: ' + (j.error||'未知');
             showNotification('上传失败: ' + (j.error||'未知'), 'error');
@@ -925,42 +1257,17 @@
         }
       });
 
-      document.getElementById('datePicker').addEventListener('change', (ev) => {
-        showNotification('已选择日期: ' + ev.target.value, 'info');
-      });
-
-      // document.getElementById('grabBtn').addEventListener('click', () => {
-      //   const firstDeviceElem = document.querySelector('#devicesContainer .device strong');
-      //   if (firstDeviceElem) {
-      //     const dev = firstDeviceElem.innerText;
-      //     fetch('/api/request_snapshot', {
-      //       method:'POST', headers:{'Content-Type':'application/json'},
-      //       body: JSON.stringify({ device: dev, channel: 1 })
-      //     }).then(r=>r.json()).then(j=>{
-      //       if (j.ok) showNotification('已发送抓图请求', 'success'); else showNotification('抓图失败', 'error');
-      //     }).catch(e=>showNotification('请求失败: '+e.message,'error'));
-      //   } else showNotification('无可用设备', 'error');
-      // });
-
-      document.getElementById('playbackBtn').addEventListener('click', () => showNotification('回放功能（前端占位）','info'));
       document.getElementById('downloadBtn').addEventListener('click', () => {
         if (currentIndex >= 0 && imagesList[currentIndex]) {
           const url = '/uploads/' + encodeURIComponent(imagesList[currentIndex]);
           const a = document.createElement('a'); a.href = url; a.download = imagesList[currentIndex]; document.body.appendChild(a); a.click(); a.remove();
         } else showNotification('无图片可下载', 'error');
       });
+      
       document.getElementById('fullBtn').addEventListener('click', () => {
         const viewer = document.getElementById('viewerWrap');
         if (document.fullscreenElement) document.exitFullscreen();
         else viewer.requestFullscreen().catch(()=>showNotification('无法进入全屏','error'));
-      });
-
-      document.querySelectorAll('.channel-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          showNotification('切换到通道 ' + btn.dataset.channel, 'info');
-        });
       });
 
       document.querySelectorAll('.nav-tabs button').forEach(b => {
@@ -971,23 +1278,32 @@
         });
       });
 
-      document.getElementById('refreshAll').addEventListener('click', async () => {
-        await loadDevices(); await loadImages(); showNotification('已刷新', 'success');
-      });
-
+      // 初始化
+      initCalendar();
+      initChannels();
+      initUpgradeModal();
       init();
     });
 
+    // 在初始化函数中添加通道状态显示
     async function init() {
       try {
         await loadConnectionStats();
         await loadDevices();
-        await loadImages();
-        refreshInterval = setInterval(async () => { await loadDevices(); await loadConnectionStats(); }, 5000);
+        await loadImages(); // 这会加载当前通道的图片
+        
+        // 在标题栏显示当前通道
+        updateChannelDisplay();
+        
+        refreshInterval = setInterval(async () => { 
+          await loadDevices(); 
+          await loadConnectionStats(); 
+        }, 5000);
       } catch (e) {
         console.error('初始化异常', e);
       }
     }
+    
     async function loadConnectionStats(){
       try {
         const data = await fetchJSON('/api/connections');
@@ -1003,11 +1319,11 @@
       n.style.position = 'fixed';
       n.style.top = '18px'; n.style.right = '18px';
       n.style.padding = '12px 16px'; n.style.borderRadius = '8px';
-      n.style.zIndex = 9999; n.style.boxShadow = '0 8px 30px rgba(0,0,0,0.5)';
-      n.style.fontWeight = 700; n.style.color = '#021212';
-      if (type === 'success') n.style.background = 'linear-gradient(#06b3b0,#028b86)';
-      else if (type === 'error') n.style.background = 'linear-gradient(#ff6b6b,#e74c3c)';
-      else n.style.background = 'linear-gradient(#a8eae6,#7ab7b5)';
+      n.style.zIndex = 9999; n.style.boxShadow = '0 8px 30px rgba(0,0,0,0.15)';
+      n.style.fontWeight = 700; n.style.color = '#ffffff';
+      if (type === 'success') n.style.background = 'linear-gradient(#2e7d32,#1b5e20)';
+      else if (type === 'error') n.style.background = 'linear-gradient(#d32f2f,#b71c1c)';
+      else n.style.background = 'linear-gradient(#4caf50,#2e7d32)';
       n.innerText = message;
       document.body.appendChild(n);
       setTimeout(() => { n.style.opacity = '0'; n.style.transform = 'translateX(60px)'; setTimeout(()=>n.remove(),300); }, 2500);
@@ -1020,3 +1336,4 @@
 
 <!-- 设备智能助手浮窗 -->
 <script src="./agent_widget.js"></script>
+[file content end]

@@ -467,7 +467,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     
     // 获取连接状态标志
     ConnectionContext* context = find_connection_by_fd(fd);
-    if (!context) {
+        if (!context) {
         printf("错误：找不到连接 %d 的上下文\n", fd);
         free(pPhotoBuffer);
         return -1;
@@ -537,8 +537,12 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     std::time_t now_time_t = static_cast<std::time_t>(seconds);
     std::tm* local_time = std::localtime(&now_time_t);
     char time_str[20];
-    strftime(time_str, sizeof(time_str), "%Y%m%d-%H%M%S", local_time);
-    sprintf(filename,"channel_%d-%s.jpg",channelNo,time_str);
+    strftime(time_str, sizeof(time_str), "%Y%m%d_%H%M%S", local_time);
+    
+    // 修改文件名格式，与save_upload_to_web保持一致：ch{channel}_{timestamp}.jpg
+    // 这样可以保证前后端统一识别通道
+    sprintf(filename,"ch%d_%s.jpg", channelNo, time_str);
+    
     //写入图片
     /****************************************************************************/
     // SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
@@ -555,7 +559,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
         std::string fullpath = upload_dir + "/" + std::string(filename);
 
         // debug
-        printf("[RecvFileHandler] saving image to: %s (size=%d)\n", fullpath.c_str(), PhotoFileSize);
+        printf("[RecvFileHandler] saving image to: %s (size=%d, channel=%d)\n", fullpath.c_str(), PhotoFileSize, channelNo);
 
         // 以二进制方式写入文件
         std::ofstream ofs(fullpath, std::ios::binary);
