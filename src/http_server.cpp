@@ -3,6 +3,7 @@
 #include "httplib.h"
 #include "connection.h"  // 包含连接管理器
 #include "sendfile.h"
+#include "modelupgrade.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -618,75 +619,296 @@ void start_http_server() {
     });
 
     // 新增：POST /api/upload_model - 上传模型文件到设备
-    svr.Post("/api/upload_model", [](const httplib::Request &req, httplib::Response &res) {
-        // 检查是否有文件
+    // v1 : 能跑
+    // svr.Post("/api/upload_model", [](const httplib::Request &req, httplib::Response &res) {
+    //     // 检查是否有文件
+    //     if (!req.is_multipart_form_data()) {
+    //         res.status = 400;
+    //         res.set_content(R"({"ok":false,"error":"不是multipart表单数据"})", "application/json");
+    //         return;
+    //     }
+        
+    //     std::string device;
+    //     std::string model_content;
+        
+    //     // 解析multipart表单
+    //     // 简化解析（实际应用中需要更健壮的解析）
+    //     size_t pos = req.body.find("name=\"device\"");
+    //     if (pos != std::string::npos) {
+    //         auto start = req.body.find("\r\n\r\n", pos);
+    //         if (start != std::string::npos) {
+    //             start += 4;
+    //             auto end = req.body.find("\r\n--", start);
+    //             if (end != std::string::npos) {
+    //                 device = req.body.substr(start, end - start);
+    //             }
+    //         }
+    //     }
+        
+    //     pos = req.body.find("name=\"model\"");
+    //     if (pos != std::string::npos) {
+    //         auto start = req.body.find("\r\n\r\n", pos);
+    //         if (start != std::string::npos) {
+    //             start += 4;
+    //             auto end = req.body.find("\r\n--", start);
+    //             if (end != std::string::npos) {
+    //                 model_content = req.body.substr(start, end - start);
+    //             }
+    //         }
+    //     }
+    //     // ... (原有的解析代码保持不变)
+        
+    //     if (device.empty() || model_content.empty()) {
+    //         res.status = 400;
+    //         res.set_content(R"({"ok":false,"error":"缺少设备ID或模型文件"})", "application/json");
+    //         return;
+    //     }
+        
+    //     // 查找设备连接
+    //     auto* conn_ctx = find_connection_by_device_id(device);
+    //     if (!conn_ctx) {
+    //         res.set_content(R"({"ok":false,"error":"设备未连接或未注册"})", "application/json");
+    //         return;
+    //     }
+        
+    //     std::cout << "[HTTP] 开始向设备 " << device << " 发送模型文件，大小: " 
+    //             << model_content.size() << " 字节" << std::endl;
+        
+    //     // 新增加：保存模型文件到临时位置
+    //     std::string temp_model_path = "/tmp/model_upgrade_" + device + ".bin";
+    //     std::ofstream model_file(temp_model_path, std::ios::binary);
+    //     if (!model_file) {
+    //         res.set_content(R"({"ok":false,"error":"无法保存模型文件"})", "application/json");
+    //         return;
+    //     }
+    //     model_file.write(model_content.data(), model_content.size());
+    //     model_file.close();
+        
+    //     std::cout << "[HTTP] 模型文件已保存到: " << temp_model_path << std::endl;
+        
+    //     // 新增加：调用AutoGetPhotoHander函数进行测试抓拍
+    //     try {
+    //         // 使用测试图片（假设存在测试图片）
+    //         std::string test_image_path = "web/uploads/test_image.jpg";
+            
+    //         // 检查测试图片是否存在，如果不存在则创建默认图片
+    //         struct stat buffer;
+    //         if (stat(test_image_path.c_str(), &buffer) != 0) {
+    //             std::cout << "[HTTP] 测试图片不存在，使用默认通道1进行测试" << std::endl;
+    //             test_image_path = "web/uploads/default.jpg";
+                
+    //             // 检查默认图片是否存在
+    //             if (stat(test_image_path.c_str(), &buffer) != 0) {
+    //                 std::cout << "[HTTP] 默认图片也不存在，跳过抓拍测试" << std::endl;
+    //             } else {
+    //                 // 调用自动抓拍函数
+    //                 int ret = AutoGetPhotoHander(test_image_path.c_str(), 1, conn_ctx->connfd);
+    //                 if (ret == 0) {
+    //                     std::cout << "[HTTP] 模型升级后抓拍测试成功" << std::endl;
+    //                 } else {
+    //                     std::cout << "[HTTP] 模型升级后抓拍测试失败，错误码: " << ret << std::endl;
+    //                 }
+    //             }
+    //         } else {
+    //             // 调用自动抓拍函数，使用通道1
+    //             int ret = AutoGetPhotoHander(test_image_path.c_str(), 1, conn_ctx->connfd);
+    //             if (ret == 0) {
+    //                 std::cout << "[HTTP] 模型升级后抓拍测试成功" << std::endl;
+    //             } else {
+    //                 std::cout << "[HTTP] 模型升级后抓拍测试失败，错误码: " << ret << std::endl;
+    //             }
+    //         }
+    //     } catch (const std::exception& e) {
+    //         std::cerr << "[HTTP] 抓拍测试异常: " << e.what() << std::endl;
+    //     }
+        
+    //     res.set_content(R"({"ok":true,"message":"模型文件发送成功"})", "application/json");
+    // });
+svr.Post("/api/upload_model", [](const httplib::Request &req, httplib::Response &res) {
+    try {
+        // 检查是否为multipart表单数据
         if (!req.is_multipart_form_data()) {
             res.status = 400;
-            res.set_content("{\"ok\":false,\"error\":\"不是multipart表单数据\"}", "application/json");
+            res.set_content(R"({"ok":false,"error":"不是multipart表单数据"})", "application/json");
             return;
         }
         
-        // 解析multipart表单
-        // 注意：httplib的multipart解析需要手动处理
-        // 这里简化处理，实际需要更完善的解析
-        
         std::string device;
+        std::string model_filename;
         std::string model_content;
+        bool has_device = false;
+        bool has_model = false;
         
-        // 简化解析（实际应用中需要更健壮的解析）
-        size_t pos = req.body.find("name=\"device\"");
-        if (pos != std::string::npos) {
-            auto start = req.body.find("\r\n\r\n", pos);
-            if (start != std::string::npos) {
-                start += 4;
-                auto end = req.body.find("\r\n--", start);
-                if (end != std::string::npos) {
-                    device = req.body.substr(start, end - start);
-                }
-            }
+        // 检查device字段（文本字段） - get_field 返回 std::string
+        if (req.form.has_field("device")) {
+            device = req.form.get_field("device", 0);  // 直接返回字符串，不是对象
+            has_device = true;
+            std::cout << "[HTTP] 获取设备ID: " << device << std::endl;
         }
         
-        pos = req.body.find("name=\"model\"");
-        if (pos != std::string::npos) {
-            auto start = req.body.find("\r\n\r\n", pos);
-            if (start != std::string::npos) {
-                start += 4;
-                auto end = req.body.find("\r\n--", start);
-                if (end != std::string::npos) {
-                    model_content = req.body.substr(start, end - start);
-                }
-            }
+        // 检查model字段（文件字段） - get_file 返回 FormData 对象
+        if (req.form.has_file("model")) {
+            auto model_file = req.form.get_file("model", 0);  // 返回 FormData 对象
+            model_filename = model_file.filename;
+            model_content = model_file.content;
+            has_model = true;
+            std::cout << "[HTTP] 获取模型文件: " << model_filename 
+                    << " (" << model_content.size() << " bytes)" << std::endl;
         }
         
-        if (device.empty() || model_content.empty()) {
+        if (!has_device || device.empty()) {
             res.status = 400;
-            res.set_content("{\"ok\":false,\"error\":\"缺少设备ID或模型文件\"}", "application/json");
+            res.set_content(R"({"ok":false,"error":"缺少设备ID"})", "application/json");
+            return;
+        }
+        
+        if (!has_model || model_content.empty()) {
+            res.status = 400;
+            res.set_content(R"({"ok":false,"error":"缺少模型文件"})", "application/json");
+            return;
+        }
+        
+        std::cout << "[HTTP] 成功解析请求 - 设备: " << device 
+                << ", 模型文件: " << model_filename 
+                << ", 大小: " << model_content.size() << " 字节" << std::endl;
+        
+        // 查找设备连接
+        auto* conn_ctx = find_connection_by_device_id(device);
+        if (!conn_ctx) {
+            res.set_content(R"({"ok":false,"error":"设备未连接或未注册"})", "application/json");
+            return;
+        }
+        
+        // 保存模型文件到临时位置
+        std::string temp_model_path = "/tmp/model_upgrade_" + device + "_" + 
+                                    std::to_string(std::time(nullptr)) + ".bin";
+        
+        try {
+            std::ofstream model_file(temp_model_path, std::ios::binary);
+            if (!model_file) {
+                std::cerr << "[HTTP] 无法创建临时文件: " << temp_model_path << std::endl;
+                res.set_content(R"({"ok":false,"error":"无法创建临时文件"})", "application/json");
+                return;
+            }
+            
+            model_file.write(model_content.data(), model_content.size());
+            model_file.close();
+            
+            std::cout << "[HTTP] 模型文件已保存到: " << temp_model_path 
+                    << " (" << model_content.size() << " 字节)" << std::endl;
+            
+            // 检查测试图片是否存在
+            std::string test_image_path = "web/uploads/test_image.jpg";
+            struct stat buffer;
+            if (stat(test_image_path.c_str(), &buffer) != 0) {
+                test_image_path = "web/uploads/default.jpg";
+                if (stat(test_image_path.c_str(), &buffer) != 0) {
+                    res.set_content(R"({"ok":true,"message":"模型文件上传成功，但未进行抓拍测试（缺少测试图片）"})", "application/json");
+                    std::remove(temp_model_path.c_str());
+                    return;
+                }
+            }
+            
+            // 调用自动抓拍函数，使用通道1
+            std::cout << "[HTTP] 开始模型升级后抓拍测试" << std::endl;
+            int ret = AutoGetPhotoHander(test_image_path.c_str(), 1, conn_ctx->connfd);
+            
+            if (ret == 0) {
+                res.set_content(R"({"ok":true,"message":"模型文件上传成功，抓拍测试完成"})", "application/json");
+            } else {
+                res.set_content(R"({"ok":true,"message":"模型文件上传成功，但抓拍测试失败"})", "application/json");
+            }
+            
+        } catch (const std::exception& e) {
+            std::cerr << "[HTTP] 异常: " << e.what() << std::endl;
+            res.set_content(R"({"ok":true,"message":"模型文件上传成功，但抓拍测试异常"})", "application/json");
+        }
+        
+        // 清理临时文件
+        std::remove(temp_model_path.c_str());
+        
+    } catch (const std::exception& e) {
+        std::cerr << "[HTTP] /api/upload_model 处理异常: " << e.what() << std::endl;
+        res.status = 500;
+        res.set_content(R"({"ok":false,"error":"服务器内部错误"})", "application/json");
+    }
+});
+
+    // 新增：POST /api/test_capture_after_upgrade - 模型升级后测试抓拍
+    svr.Post("/api/test_capture_after_upgrade", [](const httplib::Request &req, httplib::Response &res) {
+        std::string device;
+        int channel = 1;
+        
+        // 从JSON body解析
+        if (!req.body.empty()) {
+            try {
+                auto pos = req.body.find("\"device\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find('"', colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find('"', q1 + 1);
+                            if (q2 != std::string::npos && q2 > q1+1) {
+                                device = req.body.substr(q1+1, q2-q1-1);
+                            }
+                        }
+                    }
+                }
+                
+                pos = req.body.find("\"channel\"");
+                if (pos != std::string::npos) {
+                    auto colon = req.body.find(':', pos);
+                    if (colon != std::string::npos) {
+                        auto q1 = req.body.find_first_of("0123456789", colon);
+                        if (q1 != std::string::npos) {
+                            auto q2 = req.body.find_first_not_of("0123456789", q1);
+                            std::string channel_str = req.body.substr(q1, q2 - q1);
+                            channel = std::stoi(channel_str);
+                            if (channel < 1) channel = 1;
+                            if (channel > 6) channel = 6;
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[HTTP] 解析请求失败: " << e.what() << std::endl;
+            }
+        }
+        
+        if (device.empty()) {
+            res.status = 400;
+            res.set_content(R"({"ok":false,"error":"missing device"})", "application/json");
             return;
         }
         
         // 查找设备连接
         auto* conn_ctx = find_connection_by_device_id(device);
         if (!conn_ctx) {
-            res.set_content("{\"ok\":false,\"error\":\"设备未连接或未注册\"}", "application/json");
+            res.set_content(R"({"ok":false,"error":"device not connected or not registered"})", "application/json");
             return;
         }
         
-        // 这里可以添加发送模型文件的逻辑
-        // 由于具体协议未知，这里只模拟发送
+        // 使用默认测试图片路径
+        std::string test_image_path = "web/uploads/test_image.jpg";
         
-        std::cout << "[HTTP] 开始向设备 " << device << " 发送模型文件，大小: " 
-                  << model_content.size() << " 字节" << std::endl;
+        // 检查文件是否存在
+        struct stat buffer;
+        if (stat(test_image_path.c_str(), &buffer) != 0) {
+            test_image_path = "web/uploads/default.jpg";
+            
+            if (stat(test_image_path.c_str(), &buffer) != 0) {
+                res.set_content(R"({"ok":false,"error":"test image not found"})", "application/json");
+                return;
+            }
+        }
         
-        // 模拟发送过程
-        bool success = true;
+        // 调用AutoGetPhotoHander
+        int ret = AutoGetPhotoHander(test_image_path.c_str(), channel, conn_ctx->connfd);
         
-        if (success) {
-            std::cout << "[HTTP] 模型文件发送成功" << std::endl;
-            res.set_content("{\"ok\":true,\"message\":\"模型文件发送成功\",\"device\":\"" 
-                            + device + "\",\"size\":" + std::to_string(model_content.size()) + "}", 
-                            "application/json");
+        if (ret == 0) {
+            res.set_content(R"({"ok":true,"message":"capture test completed successfully"})", "application/json");
         } else {
-            res.set_content("{\"ok\":false,\"error\":\"发送模型文件失败\"}", "application/json");
+            res.set_content(R"({"ok":false,"error":"capture test failed"})", "application/json");
         }
     });
 

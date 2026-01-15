@@ -14,6 +14,10 @@
 int ChannelNum = 5;
 bool STM32Flag = true;
 bool GlobalFlag = false;
+#define READ_DATA_SIZE 1024
+#define MD5_SIZE 16
+#define MD5_STR_LEN (MD5_SIZE * 2)
+u_int32 GlobalTimeStamp = 0;
 /**
  * @brief 校验位CRC16查表法，aucCRCHi，定义在cpp源文件中，减少体积
  * 
@@ -186,3 +190,28 @@ void mv_sleep(int time)
     nanosleep(&req, (struct timespec *)NULL);//!注意这里也有一个延时！！！  
 }
 
+char* ComputeBufferMd5(unsigned char* pBuffer, int Length) 
+{
+    if (pBuffer == NULL || Length <= 0) {
+        return NULL; // 检查输入数据的合法性
+    }
+
+    unsigned char md5_value[MD5_SIZE];
+    char *md5Str = (char *)malloc(MD5_STR_LEN + 1); // 动态分配存储 MD5 字符串
+
+    if (md5Str == NULL) {
+        perror("malloc");
+        return NULL;
+    }
+
+    // 计算 MD5 值
+    MD5(pBuffer, Length, md5_value);
+
+    // 将 MD5 值转换为十六进制字符串
+    for (int i = 0; i < MD5_SIZE; i++) {
+        snprintf(&md5Str[i * 2], 3, "%02x", md5_value[i]);
+    }
+    md5Str[MD5_STR_LEN] = '\0'; // 确保字符串以 NULL 结尾
+
+    return md5Str;
+}

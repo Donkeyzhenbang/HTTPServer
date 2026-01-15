@@ -850,27 +850,127 @@
       cancelUpgrade.addEventListener('click', closeModal);
       
       // 开始升级
-      startUpgrade.addEventListener('click', async () => {
-        const file = modelFileInput.files[0];
-        const device = document.getElementById('targetDevice').value;
+      // startUpgrade.addEventListener('click', async () => {
+      //   const file = modelFileInput.files[0];
+      //   const device = document.getElementById('targetDevice').value;
         
-        if (!file) {
+      //   if (!file) {
+      //     addLogEntry('错误：请选择模型文件', 'error');
+      //     return;
+      //   }
+        
+      //   if (!device) {
+      //     addLogEntry('错误：请选择目标设备', 'error');
+      //     return;
+      //   }
+        
+      //   addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
+      //   addLogEntry(`目标设备: ${device}`, 'info');
+      //   addLogEntry('正在准备传输...', 'info');
+        
+      //   // 模拟传输过程
+      //   simulateUpgradeProcess(file, device, upgradeLog);
+      // });
+
+    //   startUpgrade.addEventListener('click', async () => {
+    //     const file = modelFileInput.files[0];
+    //     const device = document.getElementById('targetDevice').value;
+        
+    //     if (!file) {
+    //         addLogEntry('错误：请选择模型文件', 'error');
+    //         return;
+    //     }
+        
+    //     if (!device) {
+    //         addLogEntry('错误：请选择目标设备', 'error');
+    //         return;
+    //     }
+        
+    //     addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
+    //     addLogEntry(`目标设备: ${device}`, 'info');
+    //     addLogEntry('正在准备传输...', 'info');
+        
+    //     // 实际传输模型文件
+    //     try {
+    //         const formData = new FormData();
+    //         formData.append('model', file);
+    //         formData.append('device', device);
+            
+    //         const uploadResponse = await fetch('/api/upload_model', {
+    //             method: 'POST',
+    //             body: formData
+    //         });
+            
+    //         const uploadResult = await uploadResponse.json();
+            
+    //         if (uploadResult.ok) {
+    //             addLogEntry('模型文件上传成功', 'info');
+    //             // 开始模拟升级过程（包括抓拍测试）
+    //             simulateUpgradeProcess(file, device, upgradeLog);
+    //         } else {
+    //             addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
+    //         }
+    //     } catch (error) {
+    //         addLogEntry(`上传请求失败: ${error.message}`, 'error');
+    //     }
+    // });
+    startUpgrade.addEventListener('click', async () => {
+      const file = modelFileInput.files[0];
+      const device = document.getElementById('targetDevice').value;
+      
+      if (!file) {
           addLogEntry('错误：请选择模型文件', 'error');
           return;
-        }
-        
-        if (!device) {
+      }
+      
+      if (!device) {
           addLogEntry('错误：请选择目标设备', 'error');
           return;
-        }
-        
-        addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
-        addLogEntry(`目标设备: ${device}`, 'info');
-        addLogEntry('正在准备传输...', 'info');
-        
-        // 模拟传输过程
-        simulateUpgradeProcess(file, device, upgradeLog);
-      });
+      }
+      
+      addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
+      addLogEntry(`目标设备: ${device}`, 'info');
+      addLogEntry('正在准备传输...', 'info');
+      
+      // 实际传输模型文件
+      try {
+          const formData = new FormData();
+          formData.append('model', file);
+          formData.append('device', device);
+          
+          addLogEntry('正在上传文件到服务器...', 'info');
+          
+          const uploadResponse = await fetch('/api/upload_model', {
+              method: 'POST',
+              body: formData
+          });
+          
+          // 检查响应状态
+          if (!uploadResponse.ok) {
+              throw new Error(`HTTP ${uploadResponse.status}: ${uploadResponse.statusText}`);
+          }
+          
+          // 解析JSON响应
+          const uploadResult = await uploadResponse.json();
+          
+          if (uploadResult.ok) {
+              addLogEntry('模型文件上传成功', 'info');
+              // 开始模拟升级过程（包括抓拍测试）
+              simulateUpgradeProcess(file, device, upgradeLog);
+          } else {
+              addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
+          }
+      } catch (error) {
+          console.error('上传错误详情:', error);
+          
+          // 提供更详细的错误信息
+          if (error.name === 'TypeError' && error.message.includes('JSON')) {
+              addLogEntry('上传请求失败: 服务器返回了非JSON响应，可能是服务器错误', 'error');
+          } else {
+              addLogEntry(`上传请求失败: ${error.message}`, 'error');
+          }
+      }
+  });
       
       // 点击弹窗外部关闭
       upgradeModal.addEventListener('click', (e) => {
@@ -891,43 +991,128 @@
     }
     
     // 模拟升级过程
+    // function simulateUpgradeProcess(file, device, logOutput) {
+    //   // 清空日志
+    //   logOutput.innerHTML = '';
+      
+    //   const steps = [
+    //     {delay: 500, message: '正在验证模型文件格式...', type: 'info'},
+    //     {delay: 1000, message: '文件验证通过', type: 'info'},
+    //     {delay: 800, message: `正在连接设备: ${device}...`, type: 'info'},
+    //     {delay: 1200, message: '设备连接成功', type: 'info'},
+    //     {delay: 600, message: '开始传输模型文件...', type: 'info'},
+    //     {delay: 2000, message: `传输进度: 25%`, type: 'info'},
+    //     {delay: 2000, message: `传输进度: 50%`, type: 'info'},
+    //     {delay: 2000, message: `传输进度: 75%`, type: 'info'},
+    //     {delay: 2000, message: `传输进度: 100%`, type: 'info'},
+    //     {delay: 1000, message: '文件传输完成', type: 'info'},
+    //     {delay: 800, message: '正在校验文件完整性...', type: 'info'},
+    //     {delay: 1200, message: '文件校验通过', type: 'info'},
+    //     {delay: 600, message: '正在更新设备固件...', type: 'warning'},
+    //     {delay: 3000, message: '固件更新完成', type: 'info'},
+    //     {delay: 800, message: '正在重启设备...', type: 'warning'},
+    //     {delay: 2000, message: '设备重启成功', type: 'info'},
+    //     {delay: 600, message: '模型升级完成！', type: 'info'},
+    //   ];
+      
+    //   let totalDelay = 0;
+    //   steps.forEach(step => {
+    //     setTimeout(() => {
+    //       addLogEntry(step.message, step.type);
+    //     }, totalDelay);
+    //     totalDelay += step.delay;
+    //   });
+      
+    //   // 完成后显示成功消息
+    //   setTimeout(() => {
+    //     showNotification('模型升级完成！', 'success');
+    //   }, totalDelay);
+    // }
     function simulateUpgradeProcess(file, device, logOutput) {
-      // 清空日志
+    // 清空日志
       logOutput.innerHTML = '';
       
       const steps = [
-        {delay: 500, message: '正在验证模型文件格式...', type: 'info'},
-        {delay: 1000, message: '文件验证通过', type: 'info'},
-        {delay: 800, message: `正在连接设备: ${device}...`, type: 'info'},
-        {delay: 1200, message: '设备连接成功', type: 'info'},
-        {delay: 600, message: '开始传输模型文件...', type: 'info'},
-        {delay: 2000, message: `传输进度: 25%`, type: 'info'},
-        {delay: 2000, message: `传输进度: 50%`, type: 'info'},
-        {delay: 2000, message: `传输进度: 75%`, type: 'info'},
-        {delay: 2000, message: `传输进度: 100%`, type: 'info'},
-        {delay: 1000, message: '文件传输完成', type: 'info'},
-        {delay: 800, message: '正在校验文件完整性...', type: 'info'},
-        {delay: 1200, message: '文件校验通过', type: 'info'},
-        {delay: 600, message: '正在更新设备固件...', type: 'warning'},
-        {delay: 3000, message: '固件更新完成', type: 'info'},
-        {delay: 800, message: '正在重启设备...', type: 'warning'},
-        {delay: 2000, message: '设备重启成功', type: 'info'},
-        {delay: 600, message: '模型升级完成！', type: 'info'},
+          {delay: 500, message: '正在验证模型文件格式...', type: 'info'},
+          {delay: 1000, message: '文件验证通过', type: 'info'},
+          {delay: 800, message: `正在连接设备: ${device}...`, type: 'info'},
+          {delay: 1200, message: '设备连接成功', type: 'info'},
+          {delay: 600, message: '开始传输模型文件...', type: 'info'},
+          {delay: 2000, message: `传输进度: 25%`, type: 'info'},
+          {delay: 2000, message: `传输进度: 50%`, type: 'info'},
+          {delay: 2000, message: `传输进度: 75%`, type: 'info'},
+          {delay: 2000, message: `传输进度: 100%`, type: 'info'},
+          {delay: 1000, message: '文件传输完成', type: 'info'},
+          {delay: 800, message: '正在校验文件完整性...', type: 'info'},
+          {delay: 1200, message: '文件校验通过', type: 'info'},
+          {delay: 600, message: '正在更新设备固件...', type: 'warning'},
+          {delay: 3000, message: '固件更新完成', type: 'info'},
+          {delay: 800, message: '正在重启设备...', type: 'warning'},
+          {delay: 2000, message: '设备重启成功', type: 'info'},
+          {delay: 600, message: '模型升级完成！', type: 'info'},
+          // 新增加：抓拍测试步骤
+          {delay: 1000, message: '开始模型升级后抓拍测试...', type: 'info'},
       ];
       
       let totalDelay = 0;
       steps.forEach(step => {
-        setTimeout(() => {
-          addLogEntry(step.message, step.type);
-        }, totalDelay);
-        totalDelay += step.delay;
+          setTimeout(() => {
+              addLogEntry(step.message, step.type);
+          }, totalDelay);
+          totalDelay += step.delay;
       });
+      
+      // 在升级完成后，添加抓拍测试
+      setTimeout(() => {
+          // 执行抓拍测试
+          performCaptureTestAfterUpgrade(device);
+      }, totalDelay);
       
       // 完成后显示成功消息
       setTimeout(() => {
-        showNotification('模型升级完成！', 'success');
-      }, totalDelay);
-    }
+          showNotification('模型升级完成！', 'success');
+      }, totalDelay + 5000); // 额外给抓拍测试留出时间
+  }
+
+  // 新增函数：执行模型升级后的抓拍测试
+  async function performCaptureTestAfterUpgrade(device) {
+      try {
+          const logOutput = document.getElementById('upgradeLog');
+          
+          // 使用当前通道进行测试
+          const channel = currentChannel;
+          
+          addLogEntry(`正在向设备 ${device} 发送抓拍测试指令（通道${channel}）...`, 'info');
+          
+          // 调用后端API进行抓拍测试
+          const response = await fetch('/api/test_capture_after_upgrade', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                  device: device,
+                  channel: channel
+              })
+          });
+          
+          const result = await response.json();
+          
+          if (result.ok) {
+              addLogEntry('抓拍测试成功完成！设备功能正常。', 'info');
+              
+              // 等待一段时间后刷新图片列表
+              setTimeout(async () => {
+                  addLogEntry('正在检查是否有新抓拍图片...', 'info');
+                  await loadImages();
+                  addLogEntry('图片列表已刷新。', 'info');
+              }, 2000);
+          } else {
+              addLogEntry(`抓拍测试失败: ${result.error || '未知错误'}`, 'error');
+          }
+      } catch (error) {
+          const logOutput = document.getElementById('upgradeLog');
+          addLogEntry(`抓拍测试请求失败: ${error.message}`, 'error');
+      }
+  }
 
     /* 刷新按钮功能增强 */
     // 修改刷新按钮，保持当前通道

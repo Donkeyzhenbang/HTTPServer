@@ -67,6 +67,33 @@ wc -l `find . -name "*.cpp";find . -name "*.h";find . -name "*.py";find . -name 
 - 测试主动要图
 - 后续需要添加GTEST测试
 
+
+## 预期流程
+预期流程：
+- 用户在前端选择模型文件和目标设备
+- 点击"开始升级"后，前端通过FormData发送到 /api/upload_model
+- 后端接收文件，验证设备连接
+- 保存模型文件到本地（备份）
+- 调用设备升级协议发送模型文件
+- 返回结果给前端
+- 前端显示升级进度和结果
+
+前端点击升级
+    ↓
+POST /api/model_upgrade
+    ↓
+后端验证并保存模型文件
+    ↓
+异步启动 ModelUpgradeHandler
+    ↓
+    ↓ (异步执行)
+发送B361 → 等待B362
+发送B363 → 等待B364
+发送模型数据 → 
+发送B365 → 等待B366
+    ↓
+升级完成，清理临时文件
+
 ## 等待心跳包协议
 ```cpp
 int waitForHeartBeat(int fd) 

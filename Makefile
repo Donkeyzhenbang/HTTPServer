@@ -1,7 +1,7 @@
 # #可执行文件
 TARGET = ./bin/SocketServer
 CXXFLAGS :=  -w -I./inc
-LDFLAGS := -lpthread 
+LDFLAGS := -lpthread -lcrypto
 
 # 定义编译器
 CXX = g++ -std=c++17 -g
