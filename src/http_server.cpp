@@ -141,7 +141,24 @@ static std::string save_upload_to_web(const std::string &filename,
 // 新增：根据通道号过滤文件
 // 新增：根据通道号过滤文件
 static std::vector<std::string> filter_files_by_channel(const std::vector<std::string>& files, int channel) {
-    if (channel <= 0) return files; // 通道为0或负数时返回所有文件
+    // if (channel <= 0) return files; // 通道为0或负数时返回所有文件
+    if (channel == 7) {
+        // 默认通道：返回所有不是以 ch{数字}_ 开头的文件
+        std::vector<std::string> filtered;
+        std::regex channel_pattern("^ch\\d+_.*");  // 匹配 ch{数字}_ 开头的文件
+        std::regex channel_pattern2("^channel_\\d+-.*");  // 匹配 channel_{数字}- 开头的文件
+        
+        for (const auto& file : files) {
+            if (!std::regex_match(file, channel_pattern) && 
+                !std::regex_match(file, channel_pattern2) &&
+                file.find("CH") != 0 &&  // 不以 CH 开头
+                file.find("ch") == std::string::npos &&  // 不包含"通道"字样
+                file.find("channel") == std::string::npos) {  // 不包含"channel"字样
+                filtered.push_back(file);
+            }
+        }
+        return filtered;
+    }
     
     std::vector<std::string> filtered;
     std::string pattern1 = "ch" + std::to_string(channel) + "_";  // 新格式：ch1_
@@ -236,9 +253,9 @@ static std::string get_connections_html() {
 void start_http_server() {
     httplib::Server svr;
 
-    // 静态资源挂载
+    //! 静态资源挂载 静态资源挂载
     svr.set_mount_point("/", "./web");
-    svr.set_payload_max_length(50 * 1024 * 1024); // 50MB
+    svr.set_payload_max_length(500 * 1024 * 1024); // 500MB
 
     // 主页路由，显示连接信息
     svr.Get("/", [](const httplib::Request &req, httplib::Response &res) {

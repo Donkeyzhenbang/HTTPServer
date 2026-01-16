@@ -488,7 +488,7 @@
     let panStart = {x:0,y:0};
     let refreshInterval;
     let currentChannel = 1; // 当前选中的通道
-    let channels = [1, 2, 3, 4, 5, 6]; // 支持6个通道
+    let channels = [1, 2, 3, 4, 5, 6, 7]; // 支持6个通道
     let currentDate = new Date(); // 当前选中的日期
     let filteredImagesByChannel = {}; // 按通道过滤的图片
 
@@ -753,6 +753,7 @@
     }
 
     // 初始化通道选择器
+    // 修改 initChannels 函数，简化通道切换逻辑
     // function initChannels() {
     //   const channelsList = document.getElementById('channelsList');
     //   channelsList.innerHTML = '';
@@ -762,7 +763,7 @@
     //     btn.className = `channel-btn ${channel === currentChannel ? 'active' : ''}`;
     //     btn.dataset.channel = channel;
     //     btn.textContent = `通道 ${channel}`;
-    //     btn.addEventListener('click', () => {
+    //     btn.addEventListener('click', async () => {
     //       // 更新当前通道
     //       currentChannel = channel;
           
@@ -770,19 +771,11 @@
     //       document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
     //       btn.classList.add('active');
           
-    //       // 根据通道过滤图片
-    //       filterImagesByChannel();
+    //       // 更新页面显示
+    //       updateChannelDisplay();
           
-    //       // 显示该通道的第一张图片（如果有）
-    //       const channelImages = filteredImagesByChannel[channel];
-    //       if (channelImages && channelImages.length > 0) {
-    //         // 查找该图片在原始列表中的索引
-    //         const imageName = channelImages[0];
-    //         const index = imagesList.indexOf(imageName);
-    //         if (index !== -1) {
-    //           setCurrentIndex(index, {autoAdjustGroup:true});
-    //         }
-    //       }
+    //       // 加载对应通道的图片
+    //       await loadImages();
           
     //       showNotification(`已切换到通道 ${channel}`, 'info');
     //     });
@@ -790,7 +783,7 @@
     //     channelsList.appendChild(btn);
     //   });
     // }
-    // 修改 initChannels 函数，简化通道切换逻辑
+
     function initChannels() {
       const channelsList = document.getElementById('channelsList');
       channelsList.innerHTML = '';
@@ -799,7 +792,8 @@
         const btn = document.createElement('button');
         btn.className = `channel-btn ${channel === currentChannel ? 'active' : ''}`;
         btn.dataset.channel = channel;
-        btn.textContent = `通道 ${channel}`;
+        // 修改显示文本：通道0显示为"默认通道"
+        btn.textContent = channel === 7 ? '默认通道' : `通道 ${channel}`;
         btn.addEventListener('click', async () => {
           // 更新当前通道
           currentChannel = channel;
@@ -814,7 +808,8 @@
           // 加载对应通道的图片
           await loadImages();
           
-          showNotification(`已切换到通道 ${channel}`, 'info');
+          const channelName = channel === 0 ? '默认通道' : `通道 ${channel}`;
+          showNotification(`已切换到${channelName}`, 'info');
         });
         
         channelsList.appendChild(btn);
@@ -1341,11 +1336,19 @@
     }
 
     // 添加一个函数来更新页面中的通道显示
+    // function updateChannelDisplay() {
+    //   // 可以在标题栏或其他位置显示当前通道
+    //   const subtitle = document.querySelector('.subtitle');
+    //   if (subtitle) {
+    //     subtitle.textContent = `在线监控 · 全景要图 · 设备管理 · 当前通道: ${currentChannel}`;
+    //   }
+    // }
     function updateChannelDisplay() {
-      // 可以在标题栏或其他位置显示当前通道
+  // 在标题栏显示当前通道
       const subtitle = document.querySelector('.subtitle');
       if (subtitle) {
-        subtitle.textContent = `在线监控 · 全景要图 · 设备管理 · 当前通道: ${currentChannel}`;
+        const channelName = currentChannel === 7 ? '默认通道' : `通道 ${currentChannel}`;
+        subtitle.textContent = `在线监控 · 全景要图 · 设备管理 · 当前: ${channelName}`;
       }
     }
 
