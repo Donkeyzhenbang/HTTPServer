@@ -1,0 +1,25 @@
+{
+	"subject":"报警信息",
+	"alarmDetail":[
+	{
+		"alarmType": 1,
+		"alarmCofidence": 90,
+		"alarmAreaBeginX": 100,
+		"alarmAreaBeginY": 150,
+		"alarmAreaEndX": 200,
+		"alarmAreaEndY": 250,
+		"distanceOfChan": 10,
+		"distanceOfWire": 15
+	},
+	{
+		"alarmType": 2,
+		"alarmCofidence": 90,
+		"alarmAreaBeginX": 100,
+		"alarmAreaBeginY": 150,
+		"alarmAreaEndX": 200,
+		"alarmAreaEndY": 250,
+		"distanceOfChan": 10,
+		"distanceOfWire": 15
+	}
+	]
+}

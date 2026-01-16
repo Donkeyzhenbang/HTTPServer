@@ -1,0 +1,90 @@
+Fri Jan 17 14:33:46 2025
+MV自用测试卡，连接阿里云服务器47.122.114.144端口号为52487
+alarmType=1
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=90.2
+distanceOfChan=10.11
+distanceOfWire=15.23
+alarmType=2
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=91.1
+distanceOfChan=10.2
+distanceOfWire=15.1
+Json解析结果：隐患目标个数为 2
+64
+24
+20
+TotalSize = 54
+Fri Jan 17 14:34:51 2025
+MV自用测试卡，连接阿里云服务器47.122.114.144端口号为52487
+alarmType=1
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=90.2
+distanceOfChan=10.11
+distanceOfWire=15.23
+alarmType=2
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=91.1
+distanceOfChan=10.2
+distanceOfWire=15.1
+Json解析结果：隐患目标个数为 2
+64
+24
+20
+TotalSize = 54
+Fri Jan 17 14:46:34 2025
+MV自用测试卡，连接阿里云服务器47.122.114.144端口号为52487
+alarmType=1
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=90.2
+distanceOfChan=10.11
+distanceOfWire=15.23
+alarmType=2
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=91.1
+distanceOfChan=10.2
+distanceOfWire=15.1
+Json解析结果：隐患目标个数为 2
+64
+24
+20
+TotalSize = 54
+Fri Jan 17 14:48:17 2025
+MV自用测试卡，连接阿里云服务器47.122.114.144端口号为52487
+alarmType=1
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=90.2
+distanceOfChan=10.11
+distanceOfWire=15.23
+alarmType=2
+alarmAreaBeginX=100
+alarmAreaBeginY=150
+alarmAreaEndX=200
+alarmAreaEndY=250
+alarmCofidence=91.1
+distanceOfChan=10.2
+distanceOfWire=15.1
+Json解析结果：隐患目标个数为 2
+c610
+发送B313图像分析帧 

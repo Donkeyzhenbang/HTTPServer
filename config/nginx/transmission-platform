@@ -1,5 +1,6 @@
 # ==================== 上游服务定义 ====================
 # 说明：你的架构中只有一个处理HTTP请求的服务（前端 + API），监听8080端口。
+# 本文件应该放在/etc/nginx/sites-available 
 upstream app_servers {
     server 127.0.0.1:8080;
     # 可在此添加更多实例以实现负载均衡
@@ -14,7 +15,7 @@ server {
     charset utf-8;
 
     # 基础路径：所有静态文件的根目录
-    root /home/jym/code/cpp/personal-project/gw-server/bin/web;
+    root /home/jym/code/cpp/personal-project/gw-server/server/bin/web;
     index index.html;
 
     # ========== GZIP 压缩配置 ==========
@@ -32,7 +33,7 @@ server {
 
     # 1. 上传目录（图片） - 最高优先级，Nginx直接提供
     location /uploads/ {
-        alias /home/jym/code/cpp/personal-project/gw-server/bin/web/uploads/;
+        alias /home/jym/code/cpp/personal-project/gw-server/server/bin/web/uploads/;
         expires max;
         add_header Cache-Control "public, immutable";
         try_files $uri =404;

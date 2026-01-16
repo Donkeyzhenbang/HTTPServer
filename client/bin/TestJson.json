@@ -1,0 +1,126 @@
+{
+	"alarmDetail" : 
+	[
+	   {
+		  "alarmAreaBeginX" : 139.47916120290756,
+		  "alarmAreaBeginY" : 180.5419921875,
+		  "alarmAreaEndX" : 170.00000506639481,
+		  "alarmAreaEndY" : 197.724609375,
+		  "alarmCofidence" : 86.397910118103027,
+		  "alarmType" : 0.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 165.5208358168602,
+		  "alarmAreaBeginY" : 156.01318359375,
+		  "alarmAreaEndX" : 186.56249552965164,
+		  "alarmAreaEndY" : 161.24267578125,
+		  "alarmCofidence" : 80.763441324234009,
+		  "alarmType" : 0.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 183.54167282581329,
+		  "alarmAreaBeginY" : 169.833984375,
+		  "alarmAreaEndX" : 217.60416984558105,
+		  "alarmAreaEndY" : 179.794921875,
+		  "alarmCofidence" : 65.495169162750244,
+		  "alarmType" : 0.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 199.58333283662796,
+		  "alarmAreaBeginY" : 142.1923828125,
+		  "alarmAreaEndX" : 212.49999493360519,
+		  "alarmAreaEndY" : 153.27392578125,
+		  "alarmCofidence" : 100.0,
+		  "alarmType" : 2.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 228.95834058523178,
+		  "alarmAreaBeginY" : 142.31689453125,
+		  "alarmAreaEndX" : 244.06249970197678,
+		  "alarmAreaEndY" : 154.02099609375,
+		  "alarmCofidence" : 80.551367998123169,
+		  "alarmType" : 2.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 11.77083358168602,
+		  "alarmAreaBeginY" : 145.6787109375,
+		  "alarmAreaEndX" : 25.520832762122154,
+		  "alarmAreaEndY" : 155.76416015625,
+		  "alarmCofidence" : 41.975271701812744,
+		  "alarmType" : 2.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 199.37499761581421,
+		  "alarmAreaBeginY" : 141.4453125,
+		  "alarmAreaEndX" : 213.64583104848862,
+		  "alarmAreaEndY" : 152.52685546875,
+		  "alarmCofidence" : 47.536104917526245,
+		  "alarmType" : 3.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 62.39583246409893,
+		  "alarmAreaBeginY" : 245.91064453125,
+		  "alarmAreaEndX" : 69.583332985639572,
+		  "alarmAreaEndY" : 253.13232421875,
+		  "alarmCofidence" : 23.262676596641541,
+		  "alarmType" : 8.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 229.2708358168602,
+		  "alarmAreaBeginY" : 38.22509765625,
+		  "alarmAreaEndX" : 251.97916209697723,
+		  "alarmAreaEndY" : 87.65625,
+		  "alarmCofidence" : 55.905914306640625,
+		  "alarmType" : 4.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 78.020833432674408,
+		  "alarmAreaBeginY" : 93.25927734375,
+		  "alarmAreaEndX" : 124.68749731779099,
+		  "alarmAreaEndY" : 109.072265625,
+		  "alarmCofidence" : 100.0,
+		  "alarmType" : 4.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 137.60415941476822,
+		  "alarmAreaBeginY" : 97.74169921875,
+		  "alarmAreaEndX" : 148.43749970197678,
+		  "alarmAreaEndY" : 106.8310546875,
+		  "alarmCofidence" : 100.0,
+		  "alarmType" : 4.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   },
+	   {
+		  "alarmAreaBeginX" : 78.020833432674408,
+		  "alarmAreaBeginY" : 109.5703125,
+		  "alarmAreaEndX" : 91.562501192092896,
+		  "alarmAreaEndY" : 114.7998046875,
+		  "alarmCofidence" : 78.944945335388184,
+		  "alarmType" : 4.0,
+		  "distanceOfChan" : -1.0,
+		  "distanceOfWire" : -1.0
+	   }
+	],
+	"subject" : "报警信息"
+ }
