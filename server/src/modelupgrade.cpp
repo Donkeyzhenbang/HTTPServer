@@ -349,7 +349,7 @@ int SendModelToDevice(const char* filename, int channelNo, int SocketFd)
     //获得图像大小
     struct stat sbuf;
     fstat(ImgId,&sbuf);
-    void* ImgAddr = mmap(NULL, sbuf.st_size, PROT_READ, MAP_SHARED, ImgId, 0);
+    void* ModelAddr = mmap(NULL, sbuf.st_size, PROT_READ, MAP_SHARED, ImgId, 0);
     //告诉主站开始发送图像
     int packetLen = sbuf.st_size / 1024 + 1;
     printf("发送通道号%d, 总包数%d, mmap读取图片大小为%zu\n",channelNo, packetLen, sbuf.st_size);
@@ -358,18 +358,16 @@ int SendModelToDevice(const char* filename, int channelNo, int SocketFd)
     //等待回复
     waitForB352(SocketFd);
     //开始发送图片报文05F0
-    // printf("开始进行传图 \n");
-    // SendPhotoData(SocketFd,(unsigned char *)ImgAddr,sbuf.st_size,channelNo);
-    // //传输完毕，等待两秒，结束报文md5
-    // sleep(2); 
-    // SendProtocolB37(SocketFd,(unsigned char *)ImgAddr,sbuf.st_size,channelNo);//3s循环发送，最多五次
-    // printf("发送B37结束 \n");
-    // munmap(ImgAddr,sbuf.st_size);
-    // printf("图像传输完毕\n");  
-    // waitForB38(SocketFd);
-    // printf("收到B38协议 \n");
+    printf("开始进行传图 \n");
+    SendPhotoData(SocketFd,(unsigned char *)ModelAddr,sbuf.st_size,channelNo);
+    //传输完毕，等待两秒，结束报文md5
+    sleep(2); 
+    SendProtocolB37(SocketFd,(unsigned char *)ModelAddr,sbuf.st_size,channelNo);//3s循环发送，最多五次
+    printf("发送B37结束 \n");
+    munmap(ModelAddr,sbuf.st_size);
+    printf("图像传输完毕\n");  
+    waitForB38(SocketFd);
+    printf("收到B38协议 \n");
     std::cout << "当前通道号为 " << channelNo;
-    // if(channelNo == 4)
-        // SendImageAnalysis(SocketFd);//同目录下有json文件
     return 0;
 }
