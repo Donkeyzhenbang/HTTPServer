@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <vector>
 #include <pthread.h>
-#include "./inc/heartbeat.h"
-#include "./inc/utils.h"
-#include "./inc/sendfile.h"
-#include "./inc/receive.h"
+#include "heartbeat.h"
+#include "utils.h"
+#include "sendfile.h"
+#include "receive.h"
 
-//const char* NET_IP = "127.0.0.1";
-const char* NET_IP = "47.121.121.86";
+const char* NET_IP = "127.0.0.1";
+// const char* NET_IP = "47.121.121.86";
 // const char* NET_IP = "127.0.0.1";
 // const char* NET_IP = "47.122.114.144";
 // int NET_PORT = 52487;
@@ -23,10 +23,10 @@ int NET_PORT =  52487; //!单片机需要连接1037端口 两个不同的服务
 
 const char* Photo[] = {
     // "image1.jpg",
-    "Send_Color.jpg",
-    "Send_IR.jpg",
-    "Send_DoLP.jpg",
-    "Send_Yolo.jpg"
+    "../resource/Send_Color.jpg",
+    "../resource/Send_IR.jpg",
+    "../resource/Send_DoLP.jpg",
+    "../resource/Send_Yolo.jpg"
 };
 
 void HeartBeatHandleEx(int sockfd)
@@ -146,7 +146,7 @@ void SimulateModelUpgrade()
 
 int get_local_ip()
 {
-    FILE* pipe = popen("sh get_local_ip.sh", "r");
+    FILE* pipe = popen("sh ../scripts/get_local_ip.sh", "r");
     if (!pipe)
     {
         std::cerr << "无法执行脚本" << std::endl;
