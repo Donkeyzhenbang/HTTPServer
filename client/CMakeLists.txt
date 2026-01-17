@@ -21,6 +21,7 @@ find_package(OpenSSL REQUIRED)
 # 定义源文件
 set(SOURCES
     src/main.cpp
+    src/config.cpp
     src/alarminfo.cpp
     src/heartbeat.cpp
     src/receive.cpp
@@ -45,7 +46,10 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE 
         pthread
         OpenSSL::Crypto
+        ${JSONCPP_LIBRARIES}
 )
+
+
 
 # 设置输出目录
 set_target_properties(${PROJECT_NAME} PROPERTIES

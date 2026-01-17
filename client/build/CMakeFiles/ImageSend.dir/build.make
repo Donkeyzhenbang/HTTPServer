@@ -70,9 +70,22 @@ CMakeFiles/ImageSend.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/ImageSend.dir/src/main.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jym/code/cpp/personal-project/gw-server/client/src/main.cpp -o CMakeFiles/ImageSend.dir/src/main.cpp.s
 
+CMakeFiles/ImageSend.dir/src/config.cpp.o: CMakeFiles/ImageSend.dir/flags.make
+CMakeFiles/ImageSend.dir/src/config.cpp.o: ../src/config.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ImageSend.dir/src/config.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/config.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/config.cpp
+
+CMakeFiles/ImageSend.dir/src/config.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/ImageSend.dir/src/config.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/jym/code/cpp/personal-project/gw-server/client/src/config.cpp > CMakeFiles/ImageSend.dir/src/config.cpp.i
+
+CMakeFiles/ImageSend.dir/src/config.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/ImageSend.dir/src/config.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/jym/code/cpp/personal-project/gw-server/client/src/config.cpp -o CMakeFiles/ImageSend.dir/src/config.cpp.s
+
 CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o: ../src/alarminfo.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/alarminfo.cpp
 
 CMakeFiles/ImageSend.dir/src/alarminfo.cpp.i: cmake_force
@@ -85,7 +98,7 @@ CMakeFiles/ImageSend.dir/src/alarminfo.cpp.s: cmake_force
 
 CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o: ../src/heartbeat.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/heartbeat.cpp
 
 CMakeFiles/ImageSend.dir/src/heartbeat.cpp.i: cmake_force
@@ -98,7 +111,7 @@ CMakeFiles/ImageSend.dir/src/heartbeat.cpp.s: cmake_force
 
 CMakeFiles/ImageSend.dir/src/receive.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/src/receive.cpp.o: ../src/receive.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/ImageSend.dir/src/receive.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/ImageSend.dir/src/receive.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/receive.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/receive.cpp
 
 CMakeFiles/ImageSend.dir/src/receive.cpp.i: cmake_force
@@ -111,7 +124,7 @@ CMakeFiles/ImageSend.dir/src/receive.cpp.s: cmake_force
 
 CMakeFiles/ImageSend.dir/src/sendfile.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/src/sendfile.cpp.o: ../src/sendfile.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/ImageSend.dir/src/sendfile.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/ImageSend.dir/src/sendfile.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/sendfile.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/sendfile.cpp
 
 CMakeFiles/ImageSend.dir/src/sendfile.cpp.i: cmake_force
@@ -124,7 +137,7 @@ CMakeFiles/ImageSend.dir/src/sendfile.cpp.s: cmake_force
 
 CMakeFiles/ImageSend.dir/src/utils.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/src/utils.cpp.o: ../src/utils.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/ImageSend.dir/src/utils.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/ImageSend.dir/src/utils.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/src/utils.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/src/utils.cpp
 
 CMakeFiles/ImageSend.dir/src/utils.cpp.i: cmake_force
@@ -137,7 +150,7 @@ CMakeFiles/ImageSend.dir/src/utils.cpp.s: cmake_force
 
 CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o: CMakeFiles/ImageSend.dir/flags.make
 CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o: ../third_party/jsondist/jsoncpp.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o"
 	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o -c /home/jym/code/cpp/personal-project/gw-server/client/third_party/jsondist/jsoncpp.cpp
 
 CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.i: cmake_force
@@ -151,6 +164,7 @@ CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.s: cmake_force
 # Object files for target ImageSend
 ImageSend_OBJECTS = \
 "CMakeFiles/ImageSend.dir/src/main.cpp.o" \
+"CMakeFiles/ImageSend.dir/src/config.cpp.o" \
 "CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o" \
 "CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o" \
 "CMakeFiles/ImageSend.dir/src/receive.cpp.o" \
@@ -162,6 +176,7 @@ ImageSend_OBJECTS = \
 ImageSend_EXTERNAL_OBJECTS =
 
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/src/main.cpp.o
+../bin/ImageSend: CMakeFiles/ImageSend.dir/src/config.cpp.o
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/src/receive.cpp.o
@@ -171,7 +186,7 @@ ImageSend_EXTERNAL_OBJECTS =
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/build.make
 ../bin/ImageSend: /usr/lib/x86_64-linux-gnu/libcrypto.so
 ../bin/ImageSend: CMakeFiles/ImageSend.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CXX executable ../bin/ImageSend"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX executable ../bin/ImageSend"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/ImageSend.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

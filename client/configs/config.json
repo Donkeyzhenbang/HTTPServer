@@ -1,0 +1,27 @@
+{
+    "network": {
+        "default_ip": "127.0.0.1",
+        "aliyun_ip": "47.121.121.86",
+        "state_grid_ip": "172.43.0.44",
+        "default_port": 52487,
+        "state_grid_port": 28084,
+        "aliyun_port": 52487
+    },
+    "photos": {
+        "paths": [
+            "../resource/photos/Send_Color.jpg",
+            "../resource/photos/Send_IR.jpg",
+            "../resource/photos/Send_DoLP.jpg",
+            "../resource/photos/Send_Yolo.jpg"
+        ]
+    },
+    "environment": {
+        "state_grid_subnet": "10.100.75",
+        "scripts": {
+            "get_local_ip": "../scripts/get_local_ip.sh",
+            "update_model": "../scripts/update_model.sh"
+        },
+        "engine_target_dir": "../../server",
+        "engine_file": "../resource/engines/model2.engine"
+    }
+}

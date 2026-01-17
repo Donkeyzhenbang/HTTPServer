@@ -5,6 +5,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
   "/home/jym/code/cpp/personal-project/gw-server/client/src/alarminfo.cpp" "/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o"
+  "/home/jym/code/cpp/personal-project/gw-server/client/src/config.cpp" "/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir/src/config.cpp.o"
   "/home/jym/code/cpp/personal-project/gw-server/client/src/heartbeat.cpp" "/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o"
   "/home/jym/code/cpp/personal-project/gw-server/client/src/main.cpp" "/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir/src/main.cpp.o"
   "/home/jym/code/cpp/personal-project/gw-server/client/src/receive.cpp" "/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir/src/receive.cpp.o"

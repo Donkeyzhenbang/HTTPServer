@@ -3,13 +3,19 @@
 
 CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o
  ../inc/alarmInfo.h
+ ../inc/config.h
  ../third_party/jsondist/json/json.h
  /home/jym/code/cpp/personal-project/gw-server/client/src/alarminfo.cpp
+CMakeFiles/ImageSend.dir/src/config.cpp.o
+ ../inc/config.h
+ ../third_party/jsondist/json/json.h
+ /home/jym/code/cpp/personal-project/gw-server/client/src/config.cpp
 CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o
  ../inc/heartbeat.h
  ../inc/utils.h
  /home/jym/code/cpp/personal-project/gw-server/client/src/heartbeat.cpp
 CMakeFiles/ImageSend.dir/src/main.cpp.o
+ ../inc/config.h
  ../inc/heartbeat.h
  ../inc/receive.h
  ../inc/sendfile.h
@@ -22,6 +28,7 @@ CMakeFiles/ImageSend.dir/src/receive.cpp.o
  /home/jym/code/cpp/personal-project/gw-server/client/src/receive.cpp
 CMakeFiles/ImageSend.dir/src/sendfile.cpp.o
  ../inc/alarmInfo.h
+ ../inc/config.h
  ../inc/sendfile.h
  ../inc/utils.h
  ../third_party/jsondist/json/json.h
@@ -30,5 +37,6 @@ CMakeFiles/ImageSend.dir/src/utils.cpp.o
  ../inc/utils.h
  /home/jym/code/cpp/personal-project/gw-server/client/src/utils.cpp
 CMakeFiles/ImageSend.dir/third_party/jsondist/jsoncpp.cpp.o
+ ../inc/config.h
  /home/jym/code/cpp/personal-project/gw-server/client/third_party/jsondist/json/json.h
  /home/jym/code/cpp/personal-project/gw-server/client/third_party/jsondist/jsoncpp.cpp

@@ -150,6 +150,33 @@ src/alarminfo.cpp.s:
 	$(MAKE) -f CMakeFiles/ImageSend.dir/build.make CMakeFiles/ImageSend.dir/src/alarminfo.cpp.s
 .PHONY : src/alarminfo.cpp.s
 
+src/config.o: src/config.cpp.o
+
+.PHONY : src/config.o
+
+# target to build an object file
+src/config.cpp.o:
+	$(MAKE) -f CMakeFiles/ImageSend.dir/build.make CMakeFiles/ImageSend.dir/src/config.cpp.o
+.PHONY : src/config.cpp.o
+
+src/config.i: src/config.cpp.i
+
+.PHONY : src/config.i
+
+# target to preprocess a source file
+src/config.cpp.i:
+	$(MAKE) -f CMakeFiles/ImageSend.dir/build.make CMakeFiles/ImageSend.dir/src/config.cpp.i
+.PHONY : src/config.cpp.i
+
+src/config.s: src/config.cpp.s
+
+.PHONY : src/config.s
+
+# target to generate assembly for a file
+src/config.cpp.s:
+	$(MAKE) -f CMakeFiles/ImageSend.dir/build.make CMakeFiles/ImageSend.dir/src/config.cpp.s
+.PHONY : src/config.cpp.s
+
 src/heartbeat.o: src/heartbeat.cpp.o
 
 .PHONY : src/heartbeat.o
@@ -324,6 +351,9 @@ help:
 	@echo "... src/alarminfo.o"
 	@echo "... src/alarminfo.i"
 	@echo "... src/alarminfo.s"
+	@echo "... src/config.o"
+	@echo "... src/config.i"
+	@echo "... src/config.s"
 	@echo "... src/heartbeat.o"
 	@echo "... src/heartbeat.i"
 	@echo "... src/heartbeat.s"

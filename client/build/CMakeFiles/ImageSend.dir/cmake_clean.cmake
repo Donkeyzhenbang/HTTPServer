@@ -2,6 +2,7 @@ file(REMOVE_RECURSE
   "../bin/ImageSend"
   "../bin/ImageSend.pdb"
   "CMakeFiles/ImageSend.dir/src/alarminfo.cpp.o"
+  "CMakeFiles/ImageSend.dir/src/config.cpp.o"
   "CMakeFiles/ImageSend.dir/src/heartbeat.cpp.o"
   "CMakeFiles/ImageSend.dir/src/main.cpp.o"
   "CMakeFiles/ImageSend.dir/src/receive.cpp.o"
