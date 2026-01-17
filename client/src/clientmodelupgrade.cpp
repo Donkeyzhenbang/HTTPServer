@@ -196,8 +196,8 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket)
             nanosleep(&req, (struct timespec *)NULL);
             cnt ++;
         }
-        // if(cnt >= 15) //!注意这里死循环 会造成bug:客户端主动断联服务器对应线程无法退出
-        //     return -1;
+        if(cnt >= 30) //!注意这里死循环 会造成bug:客户端主动断联服务器对应线程无法退出
+            return -1;
         for(int i=0;i<size;i++) {
             unsigned char rx_temp = que_buf.front();
             que_buf.pop();
@@ -261,22 +261,6 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket)
 }
 
 
-// void ProtocolB352FrameInit(ProtocolB352& frameData)
-// {
-//     frameData = {
-//         .sync = 0x5AA5,
-//         .packetLength = 0x0001,
-//         .cmdId = {},
-//         .frameType = 0x06,
-//         .packetType = 0xEF,
-//         .frameNo = 0x00,
-//         .upload_status = 0xFF,
-//         .CRC16 = 0,
-//         .End = 0x96
-//     };
-//     memcpy(frameData.cmdId, CMD_ID, sizeof(frameData.cmdId));
-//     frameData.CRC16 = GetCheckCRC16((unsigned char*)(&frameData.packetLength), sizeof(frameData) - 5);
-// }
 
 void ProtocolB352FrameInit(ProtocolB352& frameData)
 {
@@ -304,6 +288,33 @@ int SendProtocolB352(int socket)
     fsync(socket);
     return ret;
 }
+
+void ProtocolB38FrameInit(ProtocolB38& frameData)
+{
+    frameData.sync = 0x5AA5;
+    frameData.packetLength = 0x000B;
+    // cmdId 通过 memcpy 设置，这里跳过
+    frameData.frameType = 0x06;
+    frameData.packetType = 0xF2;
+    frameData.frameNo = 0x80;
+    frameData.channelNo = 0x01;
+    frameData.ComplementPackSum = 0x00;
+    frameData.CRC16 = 0;
+    frameData.End = 0x96;
+    memcpy(frameData.cmdId, CMD_ID, sizeof(frameData.cmdId));
+    frameData.CRC16 = GetCheckCRC16((unsigned char*)(&frameData.packetLength), sizeof(frameData) - 5);
+}
+
+int SendProtocolB38(int socket)
+{
+    ProtocolB38 frameData;
+    ProtocolB38FrameInit(frameData);
+    deBugFrame((unsigned char*)&frameData, sizeof(frameData));
+    int ret = write(socket, &frameData, sizeof(frameData));
+    fsync(socket);
+    return ret;
+}
+
 
 /**
  * @brief 接收到0x05EF
@@ -390,11 +401,11 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     std::tm* local_time = std::localtime(&now_time_t);
     char time_str[20];
     strftime(time_str, sizeof(time_str), "%Y%m%d-%H%M%S", local_time);
-    sprintf(filename,"channel_%d-%s.jpg",channelNo,time_str);
+    sprintf(filename,"model_CRM_V1_2048x2448.engine");
     //写入图片
     SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
     // mv_sleep(250);//延时保证图片可以顺利读取
-    // SendProtocolB38(fd);
+    SendProtocolB38(fd);
     printf("图片大小 %d, 已发送B38 \n", PhotoFileSize);
     //结束
     //释放图像缓存

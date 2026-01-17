@@ -141,11 +141,11 @@ void SimulateModelUpgrade() {
     // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 并执行make clean && make -j
 
 
-    // std::string engine_file = config.getString("environment.engine_file", "../resource/engines/model.engine");
-    // std::string target_dir = config.getString("environment.engine_target_dir", "../../tools");
-    // std::string update_script = config.getString("environment.scripts.update_model", "../scripts/update_model.sh");
-    // std::string command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
-    // system(command.c_str());
+    std::string engine_file = config.getString("environment.engine_file", "../resource/engines/model_CRM_V1_2048x2448.engine");
+    std::string target_dir = config.getString("environment.engine_target_dir", "../../tools");
+    std::string update_script = config.getString("environment.scripts.update_model", "../scripts/update_model.sh");
+    std::string command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+    system(command.c_str());
     
     close(sockfd);
 }

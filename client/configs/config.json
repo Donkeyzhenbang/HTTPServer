@@ -22,6 +22,6 @@
             "update_model": "../scripts/update_model.sh"
         },
         "engine_target_dir": "../../server",
-        "engine_file": "../resource/engines/model2.engine"
+        "engine_file": "../resource/engines/model_CRM_V1_2048x2448.engine"
     }
 }
