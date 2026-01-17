@@ -17,6 +17,9 @@
 - 因为之前只部署了192.168.126.128 没有部署监听localhost 127.0.0.1 不上即可
 - agent部署也是在8000 端口即可
 - 精准查找SSH端口转发的进程（排除grep本身） ps aux | grep "ssh -L\|ssh -R" | grep -v grep 可以找到具体哪个后台进程再跑
+- 测试Nginx配置是否正确 sudo nginx -t
+- 重新加载Nginx配置（不中断服务） sudo nginx -s reload
+- 或者重启Nginx服务 sudo systemctl restart nginx
 
 ## 端口！！！## 阿里云已开启端口
 - 80端口是Nginx对外统一服务端口

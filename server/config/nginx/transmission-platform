@@ -17,6 +17,9 @@ server {
     # 基础路径：所有静态文件的根目录
     root /home/jym/code/cpp/personal-project/gw-server/server/bin/web;
     index index.html;
+    
+    # ========== 添加这一行 ==========
+    client_max_body_size 100M;  # 设置最大请求体大小为100MB
 
     # ========== GZIP 压缩配置 ==========
     gzip on;
