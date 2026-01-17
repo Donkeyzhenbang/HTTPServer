@@ -36,18 +36,18 @@ struct __attribute__((packed)) ProtocolB341{
  * @brief 监拍装置请求上送照片报文的响应报文格式
  * 
  */
-struct __attribute__((packed)) ProtocolB352{ 
-    u_int16 sync;        //报文头：5AA5H
-    u_int16 packetLength;//报文长度：28字节
-    char cmdId[17];      //CMD_ID,17位编码
-    u_int8 frameType;    //帧类型，06H（远程图像数据响应报）
-    u_int8 packetType;   //报文类型，EFH（拍摄装置请求上送）
-    u_int8 frameNo;      //帧序列号
-    u_int8 uploadStatus; //FFH：允许；00H：不允许
+// struct __attribute__((packed)) ProtocolB352{ 
+//     u_int16 sync;        //报文头：5AA5H
+//     u_int16 packetLength;//报文长度：28字节
+//     char cmdId[17];      //CMD_ID,17位编码
+//     u_int8 frameType;    //帧类型，06H（远程图像数据响应报）
+//     u_int8 packetType;   //报文类型，EFH（拍摄装置请求上送）
+//     u_int8 frameNo;      //帧序列号
+//     u_int8 uploadStatus; //FFH：允许；00H：不允许
 
-    u_int16 CRC16;       //CRC16校验
-    u_int8 End;          //报文尾
-};
+//     u_int16 CRC16;       //CRC16校验
+//     u_int8 End;          //报文尾
+// };
 
 /**
  * @brief 远程图像补包数据下发数据报文B38协议
@@ -121,30 +121,7 @@ int waitForHeartBeat(int fd)
  * @param fd 
  * @return int 
  */
-// int waitForB341(int fd, int& channel) 
-// {
-//     int len = read(fd,buffer,1024);
-//     if(len < 0) {
-//         //出错
-//         printf("B341 Socket Read出错\n");
-//         return -1;
-//     }
-//     int ret;
-//     if((ret = CheckFrameFull(buffer, len))<0) {
-//         printf("帧解析出错，不完整，错误码%d\n",ret);
-//         deBugFrame(buffer,len);
-//         return -1;
-//     }
-//     u_int8 frameType,packetType;
-//     getFramePacketType(buffer, &frameType, &packetType);
-//     if(frameType == 0x07 && packetType == 0xEE) {
-//         printf("接收到B341协议\n");
-//         deBugFrame(buffer,len);
-//         return 0;
-//     }
-//     printf("收到其他包，没有收到B341\n");
-//     return -2;
-// }
+
 
 int waitForB341(int fd) 
 {

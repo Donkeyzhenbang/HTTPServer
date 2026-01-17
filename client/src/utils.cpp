@@ -12,13 +12,14 @@
 #include <chrono>
 #include <functional>
 #include <openssl/md5.h>
+#include <fcntl.h>
 #include "utils.h"
 
 #define READ_DATA_SIZE 1024
 #define MD5_SIZE 16
 #define MD5_STR_LEN (MD5_SIZE * 2)
 u_int32 GlobalTimeStamp = 0;
-
+bool GlobalFlag = false;
 /**
  * @brief 校验位CRC16查表法，aucCRCHi，定义在cpp源文件中，减少体积
  * 
@@ -253,4 +254,16 @@ void get_local_time()
 
     // 输出时间
     std::cout << std::asctime(local_time);
+}
+//openfile，and write
+int SaveFile(const char *filename, unsigned char* pBuffer, size_t length) 
+{
+    int fd = open(filename, O_RDWR | O_CREAT, S_IRWXU | S_IRGRP | S_IROTH);
+    if( -1 == fd) {
+        printf("打开文件错误\n");
+        return fd;
+    }
+    write(fd,pBuffer,length);
+    close(fd);
+    return 0;
 }

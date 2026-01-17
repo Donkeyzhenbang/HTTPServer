@@ -7,6 +7,7 @@ typedef unsigned short u_int16;
 typedef unsigned int u_int32;
 
 extern u_int32 GlobalTimeStamp;
+extern bool GlobalFlag ;
 
 int SocketConnect(int sockfd, const char* addr, uint16_t port);
 unsigned short GetCheckCRC16(unsigned char* pBuffer, int Length);
@@ -17,4 +18,5 @@ char* ComputeBufferMd5(unsigned char* pBuffer, int Length);
 void measure_time_func(std::function<void(void)> func,const char* Information);
 void mv_sleep(int time);
 void get_local_time();
+int SaveFile(const char *filename, unsigned char* pBuffer, size_t length) ;
 #endif

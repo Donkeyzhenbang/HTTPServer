@@ -13,6 +13,7 @@
 #include "sendfile.h"
 #include "receive.h"
 #include "config.h"  // 添加配置头文件
+#include "clientmodelupgrade.h"
 
 // 使用配置管理器
 Config& config = Config::getInstance();
@@ -133,7 +134,8 @@ void SimulateModelUpgrade() {
     int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
     SocketConnect(sockfd, NET_IP.c_str(), NET_PORT);
     HeartBeatHandleEx(sockfd);
-    int ch = waitForB351(sockfd);
+    // int ch = waitForB351(sockfd);
+    recv_model(sockfd);
 
     // 接收完引擎文件 存在 ../resource/engines/model... 
     // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 并执行make clean && make -j

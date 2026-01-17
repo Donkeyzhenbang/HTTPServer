@@ -20,23 +20,23 @@ static const int AlarmMap[10] = {5, 4, 1, 2, 3, 0, 0, 7, 6, 0};
  * @brief 远程图像数据报
  * 
  */
-struct __attribute__((packed)) ProtocolPhotoData{
-    u_int16 sync;
-    u_int16 packetLength;
+// struct __attribute__((packed)) ProtocolPhotoData{
+//     u_int16 sync;
+//     u_int16 packetLength;
 
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    u_int16 packetNo; // 总包数
-    u_int16 subpacketNo; // 子包包号
-    int prefix_sample[2];
-    char sample[1024]; //!数据区暂定 后面修改  
+//     char cmdId[17];
+//     u_int8 frameType;
+//     u_int8 packetType;
+//     u_int8 frameNo;
+//     u_int8 channelNo;
+//     u_int16 packetNo; // 总包数
+//     u_int16 subpacketNo; // 子包包号
+//     int prefix_sample[2];
+//     char sample[1024]; //!数据区暂定 后面修改  
 
-    u_int16 CRC16;
-    u_int8 End;
-};
+//     u_int16 CRC16;
+//     u_int8 End;
+// };
 
 /**
  * @brief 手动请求拍摄照片报文的响应报文格式

@@ -5,6 +5,11 @@
 - 7 模拟长时间静默连接测试
 - 8 模拟模型升级测试
 
+## 未来优化方向 （重要待办）
+- 将一些底层封装为DKbase库
+- 应该将很多可用复用的函数、api变成底层库DKServer库，ADK库基于DKBase库
+- 最上层开发client server应基于DKBase库和DKServer库，避免很多时候代码冗余和不必要的来回重新抄写
+
 
 ## crypto缺失
 ```sh

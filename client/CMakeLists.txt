@@ -27,6 +27,7 @@ set(SOURCES
     src/heartbeat.cpp
     src/receive.cpp
     src/sendfile.cpp
+    src/clientmodelupgrade.cpp
     src/utils.cpp
     third_party/jsondist/jsoncpp.cpp
 )
