@@ -6,3 +6,4 @@
 AliImageSend
 SocketServer
 LocalImageSend
+./client/build/

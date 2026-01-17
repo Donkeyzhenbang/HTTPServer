@@ -1,3 +1,0 @@
-/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/rebuild_cache.dir
-/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/edit_cache.dir
-/home/jym/code/cpp/personal-project/gw-server/client/build/CMakeFiles/ImageSend.dir
