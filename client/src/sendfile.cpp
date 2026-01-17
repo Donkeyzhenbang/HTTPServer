@@ -555,7 +555,7 @@ int SendB313Protocol(int socket, std::vector<alarmInfoMetaData>& ParseInfo)
 void SendImageAnalysis(int sockfd)   //入口参数struct 
 {
     //拿到json解析结果 1、施工机械 2、吊车 3、塔吊 4、验货 5、防尘网 6、人员 7、线路异物
-    std::vector<alarmInfoMetaData> res = getAlarmInfo("TestJson.json");
+    std::vector<alarmInfoMetaData> res = getAlarmInfo("../configs/TestJson.json");
     std::cout << "Json解析结果：隐患目标个数为 " << res.size() << std::endl;
     // for(int i = 0; i < res.size(); i ++) {
     //     res[i].debug();

@@ -324,7 +324,7 @@ int AutoGetPhotoHander(const char* filename, int channelNo, int SocketFd)
     printf("收到B38协议 \n");
     std::cout << "当前通道号为 " << channelNo;
     // if(channelNo == 4)
-        // SendImageAnalysis(SocketFd);//同目录下有json文件
+    //     SendImageAnalysis(SocketFd);//同目录下有json文件
     return 0;
 }
 
