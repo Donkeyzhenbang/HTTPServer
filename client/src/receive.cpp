@@ -6,9 +6,9 @@
 #include <sys/stat.h>   //用于文件状态和fstat函数
 #include <fcntl.h>      //用于文件控制操作（如open）
 #include <sys/mman.h>   //mmap
-#include "../inc/sendfile.h"
-#include "../inc/utils.h"
-#include "../inc/receive.h"
+#include "sendfile.h"
+#include "utils.h"
+#include "receive.h"
 static unsigned char buffer[1024] = {};//!不需要清空缓冲区吗
 static int SampleHander(unsigned char* pBuffer, int Length, int fd);
 static int ManualGetPhotoHander(unsigned char* pBuffer, int Length, int fd);

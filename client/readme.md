@@ -1,5 +1,17 @@
+## json库引用
+
+
+## crypto缺失
+```sh
+sudo apt-get install libssl-dev
+```
+
+## cmake替换Makefile
+
+
 ## 本工程中基础硬编码 
-- 若修改文件架构，记得修改
+
+- 若修改文件架构，记得修改工程中硬编码问题
 
 ```cpp
 main.cpp:24

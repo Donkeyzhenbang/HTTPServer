@@ -1,8 +1,8 @@
-#include "alarmInfo.h"
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "./jsondist/json/json.h"
+#include "alarmInfo.h"
+#include "json.h"
 //读string，创建json对象，与上一个对照，这里是string到json
 static Json::Value readJsonFromString(const std::string& mystr)
 {

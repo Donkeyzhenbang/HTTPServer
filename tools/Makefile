@@ -1,6 +1,7 @@
-# #可执行文件
+# 原client工程的Makefile
+# 可执行文件
 TARGET = ./bin/ImageSend
-CXXFLAGS :=  -w -I./inc
+CXXFLAGS :=  -w -I./inc -I./third_party/jsondist/json
 LDFLAGS := -lpthread -lcrypto
 
 # 定义编译器
@@ -23,6 +24,7 @@ clean:
 	rm -f  $(TARGET) 
 
 .PHONY: all clean
+
 
 
                                                                  

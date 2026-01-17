@@ -12,7 +12,7 @@
 #include <chrono>
 #include <functional>
 #include <openssl/md5.h>
-#include "../inc/utils.h"
+#include "utils.h"
 
 #define READ_DATA_SIZE 1024
 #define MD5_SIZE 16

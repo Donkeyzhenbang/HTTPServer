@@ -4,10 +4,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <chrono>   //用于时间相关函数
-#include "../inc/sendfile.h"
-#include "../inc/utils.h"
-#include "../src/jsondist/json/json.h"
-#include "../inc/alarmInfo.h"
+#include "sendfile.h"
+#include "utils.h"
+#include "json.h"
+#include "alarmInfo.h"
 #define CMD_ID "10370000123456789"  // CMD_ID，17位编码
 #define PIC_ID 0x0001               // 图片ID，4字节
 

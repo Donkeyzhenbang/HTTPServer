@@ -4,8 +4,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <chrono>
-#include "../inc/utils.h"
-#include "../inc/heartbeat.h"
+#include "utils.h"
+#include "heartbeat.h"
 
 #define CMD_ID "10370000123456789"  // CMD_ID，17位编码
 
