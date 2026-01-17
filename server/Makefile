@@ -7,10 +7,11 @@ LDFLAGS := -lpthread -lcrypto
 CXX = g++ -std=c++17 -g
 
 # 定义源文件和目标文件
-SRC = main.cpp 
+# SRC = main.cpp 
 
 # 添加其他目录中的源文件
-SRC += $(wildcard src/*.cpp )
+# SRC = $(wildcard src/*.cpp )
+SRC = $(shell find . -name "*.cpp")
 OBJ = $(SRC:.cpp=.o)
 # 默认目标
 all: $(TARGET) 

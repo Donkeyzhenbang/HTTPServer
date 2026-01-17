@@ -198,12 +198,12 @@ int main(int argc, char* argv[]) {
                 SendSinglePhotoAli(channelNo);
             else if (channelNo == 5)
                 SendMultiPhotoAli();
-            else if (channelNo == 6)
-                SimulateMcuAli();
-            else if (channelNo == 7)
-                SimulateMcuSleepAli();
-            else if (channelNo == 8)
-                SimulateModelUpgrade();
+            else if (channelNo == 6) // 模拟手动要图测试
+                SimulateMcuAli(); 
+            else if (channelNo == 7) // 模拟长时间静默连接测试
+                SimulateMcuSleepAli(); 
+            else if (channelNo == 8) // 模拟模型升级测试
+                SimulateModelUpgrade(); 
         }, "传图时间");
     } else if (current_ip == state_grid_ip) {
         std::cout << "正在向国网统一视频平台传图 \n";
