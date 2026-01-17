@@ -18,6 +18,7 @@ include_directories(
 # 查找OpenSSL库
 find_package(OpenSSL REQUIRED)
 
+
 # 定义源文件
 set(SOURCES
     src/main.cpp
@@ -46,7 +47,6 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE 
         pthread
         OpenSSL::Crypto
-        ${JSONCPP_LIBRARIES}
 )
 
 
