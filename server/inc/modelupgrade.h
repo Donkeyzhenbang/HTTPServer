@@ -4,8 +4,8 @@
 #include <unistd.h>    // 添加sleep函数头文件
 #include "utils.h"
 
-// 声明AutoGetPhotoHander函数（假设它在其他源文件中定义）
-int AutoGetPhotoHander(const char* filename, int channelNo, int SocketFd);
+// SendModelToDevice
+int SendModelToDevice(const char* filename, int channelNo, int SocketFd);
 
 // 声明协议相关函数（假设这些函数在其他文件中定义）
 int SendProtocolB351(int socket, u_int8 channelNo, u_int16 packetLen);

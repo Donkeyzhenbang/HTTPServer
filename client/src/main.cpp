@@ -130,21 +130,22 @@ void SimulateMcuSleepAli() {
 void SimulateModelUpgrade() {
     std::cout << "真正执行模型升级 \n";
 
-    // int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
-    // SocketConnect(sockfd, NET_IP, NET_PORT);
-    // HeartBeatHandleEx(sockfd);
-    // int ch = waitForB351(sockfd);
+    int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
+    SocketConnect(sockfd, NET_IP.c_str(), NET_PORT);
+    HeartBeatHandleEx(sockfd);
+    int ch = waitForB351(sockfd);
 
     // 接收完引擎文件 存在 ../resource/engines/model... 
     // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 并执行make clean && make -j
-    std::string engine_file = config.getString("environment.engine_file", "../resource/engines/model.engine");
-    std::string target_dir = config.getString("environment.engine_target_dir", "../../tools");
-    std::string update_script = config.getString("environment.scripts.update_model", "../scripts/update_model.sh");
-    // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 
-    std::string command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
-    system(command.c_str());
+
+
+    // std::string engine_file = config.getString("environment.engine_file", "../resource/engines/model.engine");
+    // std::string target_dir = config.getString("environment.engine_target_dir", "../../tools");
+    // std::string update_script = config.getString("environment.scripts.update_model", "../scripts/update_model.sh");
+    // std::string command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+    // system(command.c_str());
     
-    // close(sockfd);
+    close(sockfd);
 }
 
 int get_local_ip() {

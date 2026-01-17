@@ -332,10 +332,10 @@ int SendPhotoData(int SocketFd,unsigned char* pBuffer, int Length, int channelNo
  * @param SocketFd 
  * @return int 
  */
-int AutoGetPhotoHander(const char* filename, int channelNo, int SocketFd)
+int SendModelToDevice(const char* filename, int channelNo, int SocketFd)
 {
     // waitForB341(SocketFd); //!模拟心跳接受
-    printf("进入自动抓拍程序\n");
+    printf("进入传输模型文件程序\n");
     
     //要获取的通道号
     // SendProtocolB342(SocketFd);
