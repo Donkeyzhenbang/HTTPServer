@@ -15,18 +15,15 @@
 
 const char* NET_IP = "127.0.0.1";
 // const char* NET_IP = "47.121.121.86";
-// const char* NET_IP = "127.0.0.1";
-// const char* NET_IP = "47.122.114.144";
-// int NET_PORT = 52487;
 static char state_grid_ip[] = "172.43.0.44";
 int NET_PORT =  52487; //!单片机需要连接1037端口 两个不同的服务
 
 const char* Photo[] = {
     // "image1.jpg",
-    "../resource/Send_Color.jpg",
-    "../resource/Send_IR.jpg",
-    "../resource/Send_DoLP.jpg",
-    "../resource/Send_Yolo.jpg"
+    "../resource/photos/Send_Color.jpg",
+    "../resource/photos/Send_IR.jpg",
+    "../resource/photos/Send_DoLP.jpg",
+    "../resource/photos/Send_Yolo.jpg"
 };
 
 void HeartBeatHandleEx(int sockfd)
@@ -129,19 +126,21 @@ void SimulateMcuSleepAli()
 void SimulateModelUpgrade()
 {
     std::cout << "模拟STM32发送心跳接收B341协议 \n";
-    int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
-    SocketConnect(sockfd, NET_IP, NET_PORT);
-    HeartBeatHandleEx(sockfd);
-    int ch = waitForB351(sockfd);
-    // int channelNo = waitForB341(sockfd);
-    // if(channelNo < 0){
-    //     std::cout << "B341解析失败" << std::endl;
-    //     return;
-    // }
-    // SendProtocolB342(sockfd);
-    //! 模拟单片机
-    // sleep(100);
-    close(sockfd);
+    // int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
+    // SocketConnect(sockfd, NET_IP, NET_PORT);
+    // HeartBeatHandleEx(sockfd);
+    // int ch = waitForB351(sockfd);
+
+    // 接收完引擎文件 存在 ../resource/engines/model... 
+    // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 并执行make clean && make -j
+    std::string engine_file = "../resource/engines/model.engine";
+    std::string target_dir = "../../tools";
+    
+    // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 
+    std::string command = "../scripts/update_model.sh \"" + engine_file + "\" \"" + target_dir + "\"";
+    system(command.c_str());
+    
+    // close(sockfd);
 }
 
 int get_local_ip()
@@ -179,15 +178,7 @@ int get_local_ip()
 
 int main(int argc, char* argv[])
 {
-    // freopen("output.log", "a", stdout); 
-    // //!单次运行
-    // get_local_time();
-    // int ret = get_local_ip();
-    // int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
-    // SocketConnect(sockfd, NET_IP, NET_PORT);
-    // sleep(1);
-    // SendImageAnalysis(sockfd);
-
+    // freopen("output.log", "a", stdout);  // 输出到日志文件
     //!完整流程
     get_local_time();
     int ret = get_local_ip();
