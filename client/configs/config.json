@@ -9,7 +9,7 @@
     },
     "photos": {
         "paths": [
-            "../resource/photos/Send_Color.jpg",
+            "../resource/photos/pic_test.jpg",
             "../resource/photos/Send_IR.jpg",
             "../resource/photos/Send_DoLP.jpg",
             "../resource/photos/Send_Yolo.jpg"

@@ -35,6 +35,7 @@ void initConfiguration() {
     NET_PORT = config.getInt("network.default_port", 52487);
     state_grid_ip = config.getString("network.state_grid_ip", "172.43.0.44");
     PhotoPaths = config.getPhotoPaths();
+    std::cout << PhotoPaths[0] << std::endl;
     
     // 确保至少有4个照片路径
     if (PhotoPaths.size() < 4) {
