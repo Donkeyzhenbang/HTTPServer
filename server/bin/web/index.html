@@ -616,7 +616,7 @@
     async function loadImages() {
       try {
         // 添加通道参数到请求
-        const arr = await fetchJSON('/api/images?channel=' + currentChannel + '&_=' + Date.now());
+        const arr = await fetchJSON('/api/images?channel=' + currentChannel);
         imagesList = Array.isArray(arr) ? arr : [];
         
         // 移除原有的 filterImagesByChannel 函数调用
@@ -1144,7 +1144,8 @@
           const globalIdx = parseInt(item.dataset.index);
           const img = item.querySelector('img');
           if (img) {
-            img.src = '/uploads/' + encodeURIComponent(item.dataset.name) + '?_=' + Date.now();
+            // img.src = '/uploads/' + encodeURIComponent(item.dataset.name) + '?_=' + Date.now();
+            img.src = '/uploads/' + encodeURIComponent(item.dataset.name);
           }
           setCurrentIndex(globalIdx, {autoAdjustGroup:true, smoothScroll:true});
         };
@@ -1168,7 +1169,8 @@
         item.dataset.index = globalIdx;
         
         const img = document.createElement('img');
-        img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+        // img.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+        img.src = '/uploads/' + encodeURIComponent(name);
         img.alt = name;
         item.appendChild(img);
         
@@ -1259,14 +1261,16 @@
       inner.innerHTML = '';
       scale = 1; translate = {x:0,y:0};
       const img = document.createElement('img');
-      img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
+      img.src = '/uploads/' + encodeURIComponent(name);
+      // img.src = '/uploads/' + encodeURIComponent(name) + '?t=' + Date.now();
       img.alt = name;
       img.draggable = false;
       
       img.onerror = function() {
         console.log('图片加载失败，重试...');
         setTimeout(() => {
-          this.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+          // this.src = '/uploads/' + encodeURIComponent(name) + '?_=' + Date.now();
+          his.src = '/uploads/' + encodeURIComponent(name);
         }, 1000);
       };
       
