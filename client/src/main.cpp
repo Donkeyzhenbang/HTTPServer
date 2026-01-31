@@ -133,20 +133,41 @@ void SimulateModelUpgrade() {
     std::cout << "真正执行模型升级 \n";
 
     int sockfd  = socket(AF_INET, SOCK_STREAM, 0);
+    int model_script_channel = 0;
     SocketConnect(sockfd, NET_IP.c_str(), NET_PORT);
+    //! 这个地方也需要重构 正常顺序应该是我们连接上 已经有了IO线程之后 
+    //! 有了多个协议对应的解析与回调注册之后 这些都初始化好之后再进行心跳
     HeartBeatHandleEx(sockfd);
     // int ch = waitForB351(sockfd);
-    recv_model(sockfd);
-
+    recv_model(sockfd, model_script_channel); // 这里预留 channel 接口 根据 model_script_channel 选择后续脚本方式
+    std::cout << "模型升级通道号 model_scirpt_channel: " << model_script_channel << std::endl;
     // 接收完引擎文件 存在 ../resource/engines/model... 
     // 调用脚本文件 完成 将客户端接收的model拷贝到 指定路径 并执行make clean && make -j
+    // 通道号 模型升级 11多曝光融合 22弱光增强 33异物检测 44yolo 55去雾
+    //! 后续使用工厂模式重构 这里需要注意不同的模型升级策略都需要编码一下路径
+    std::string command;
+    bool shouldExecute = false;
 
+    if(model_script_channel == 11) {
+        std::string engine_file = config.getString("environment.exposure_engine_file", "../resource/engines/model_CRM_V1_2048x2448.engine");
+        std::string target_dir = config.getString("environment.exposure_engine_target_dir", "../../tools");
+        std::string update_script = config.getString("environment.scripts.exposure_update_model", "../scripts/exposure_update_model.sh");
+        command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+        shouldExecute = true;
+    } else if(model_script_channel == 22) {
+        std::string engine_file = config.getString("environment.semantic_engine_file", "../resource/engines/model_default.engine");
+        std::string target_dir = config.getString("environment.semantic_engine_target_dir", "../../tools");
+        std::string update_script = config.getString("environment.scripts.semantic_update_model", "../scripts/semantic_update_model.sh");
+        command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+        shouldExecute = true;
+    }
 
-    std::string engine_file = config.getString("environment.engine_file", "../resource/engines/model_CRM_V1_2048x2448.engine");
-    std::string target_dir = config.getString("environment.engine_target_dir", "../../tools");
-    std::string update_script = config.getString("environment.scripts.update_model", "../scripts/update_model.sh");
-    std::string command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
-    system(command.c_str());
+    if(shouldExecute) {
+        std::cout << "执行命令: " << command << std::endl;
+        system(command.c_str());
+    } else {
+        std::cerr << "未知的模型升级通道: " << model_script_channel << std::endl;
+    }
     
     close(sockfd);
 }

@@ -7,5 +7,6 @@ AliImageSend
 SocketServer
 LocalImageSend
 httpserver
+ImageSend
 client/build/*
 server/build/*

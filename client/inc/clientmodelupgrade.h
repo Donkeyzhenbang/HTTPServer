@@ -2,7 +2,7 @@
 #define __CLIENTMODELUPGRADE_H__
 
 #include <iostream>
-void recv_model(int connfd);
+void recv_model(int connfd, int& model_script_channel);
 
 struct __attribute__((packed)) ProtocolB351{
     u_int16 sync;

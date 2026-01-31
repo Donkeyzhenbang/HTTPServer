@@ -24,8 +24,7 @@
 #define PIC_ID 0x0001               // 图片ID，4字节
 
 using namespace std;
-static int SampleHander(unsigned char* pBuffer, int Length, int fd);
-static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd);
+static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& model_script_channel);
 
 
 typedef struct Packet_t {
@@ -39,7 +38,7 @@ typedef struct Packet_t {
 struct HandlerFun{
     u_int8 frameType;
     u_int8 packetType;
-    int (*func)(unsigned char* pBuffer, int Length, int fd);
+    int (*func)(unsigned char* pBuffer, int Length, int fd, int& model_script_channel);
 };
 
 /**
@@ -95,7 +94,7 @@ static MyQueue que_buf;//所有的都会从这过
 
 
 
-int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
+int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd, int& model_script_channel)
 {
     u_int8 frameType,packetType;
     getFramePacketType(pBuffer, &frameType, &packetType);
@@ -104,7 +103,7 @@ int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
     for(int i=0;i<sizeof(Handlers)/sizeof(HandlerFun);i++) {
         if(Handlers[i].frameType == frameType && Handlers[i].packetType == packetType) {   
             if(Handlers[i].func!=NULL) {
-                Handlers[i].func(pBuffer,Length,sockfd);
+                Handlers[i].func(pBuffer,Length,sockfd, model_script_channel);
             }
             return 0;
         }
@@ -324,13 +323,13 @@ int SendProtocolB38(int socket)
  * @param fd 
  * @return int 
  */
-static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
+static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& model_script_channel)
 {
     printf("接收到B351 05EF\n");
     //解析0x05EF帧，通道号，图像总包数
     struct ProtocolB351 *pB351 = (struct ProtocolB351*)pBuffer;
     //解析出来的通道号
-    int channelNo = pB351->channelNo; //通道号
+    model_script_channel = pB351->channelNo; //通道号 模型升级 11多曝光融合 22弱光增强 33异物检测 44yolo 55去雾
     int packetLen = (pB351->packetHigh << 8) | (pB351->packetLow);//总包数
     printf("PacketLen : %d \n", packetLen);
 
@@ -383,7 +382,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
         
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end - start;
-        printf("收到B37协议 出循环 通道号为%d, 总共用时%f 图片接收完毕，无需补包！\n", channelNo, elapsed.count());
+        printf("收到B37协议 出循环 模型通道号为%d, 总共用时%f 图片接收完毕，无需补包！\n", model_script_channel, elapsed.count());
     }while(0);//当检查图片完整通过，退出
     int cnt = 0;
     for(int i=0;i<recvStatus.size();i++) {
@@ -415,7 +414,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
 }
 
 
-void recv_model(int connfd) {
+void recv_model(int connfd, int& model_script_channel) {
     pthread_t read_thread;
     printf("新客户端线程启动...\n");
     mv_sleep(200);
@@ -434,7 +433,7 @@ void recv_model(int connfd) {
             pthread_exit(NULL);
         }
 
-        sFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd);
+        sFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd, model_script_channel);
         delete pPacket;
 
         if (GlobalFlag)

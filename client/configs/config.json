@@ -19,9 +19,12 @@
         "state_grid_subnet": "10.100.75",
         "scripts": {
             "get_local_ip": "../scripts/get_local_ip.sh",
-            "update_model": "../scripts/update_model.sh"
+            "exposure_update_model": "../scripts/exposure_update_model.sh",
+            "semantic_update_model": "../scripts/semantic_update_model.sh"
         },
-        "engine_target_dir": "../../server",
-        "engine_file": "../resource/engines/model_CRM_V1_2048x2448.engine"
+        "exposure_engine_target_dir": "../../server", 
+        "exposure_engine_file": "../resource/engines/model_CRM_V1_2048x2448.engine",
+        "semantic_engine_target_dir": "../../server", 
+        "semantic_engine_file": "../resource/engines/model_semantic_2048x2448.engine"
     }
 }
