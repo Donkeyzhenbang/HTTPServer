@@ -456,6 +456,17 @@
             <!-- 设备列表将通过JavaScript动态填充 -->
           </select>
         </div>
+        <!-- 新增类型选择-->
+        <div class="form-group">
+            <label for="modelType">模型类型</label>
+            <select id="modelType">
+                <option value="11">多曝光融合</option>
+                <option value="22">弱光增强</option>
+                <option value="33">异物检测</option>
+                <option value="44">YOLO检测</option>
+                <option value="55">去雾</option>
+            </select>
+        </div>
         <div class="form-group">
           <label>传输日志</label>
           <div class="log-output" id="upgradeLog">
@@ -836,134 +847,147 @@
         // 重置表单
         modelFileInput.value = '';
         document.getElementById('targetDevice').selectedIndex = 0;
+        document.getElementById('modelType').selectedIndex = 0; // 重置模型类型选择
         upgradeLog.innerHTML = '<div class="log-entry info">等待上传模型文件...</div>';
       }
       
       modalClose.addEventListener('click', closeModal);
       cancelUpgrade.addEventListener('click', closeModal);
       
-      // 开始升级
-      // startUpgrade.addEventListener('click', async () => {
-      //   const file = modelFileInput.files[0];
-      //   const device = document.getElementById('targetDevice').value;
-        
-      //   if (!file) {
-      //     addLogEntry('错误：请选择模型文件', 'error');
-      //     return;
-      //   }
-        
-      //   if (!device) {
-      //     addLogEntry('错误：请选择目标设备', 'error');
-      //     return;
-      //   }
-        
-      //   addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
-      //   addLogEntry(`目标设备: ${device}`, 'info');
-      //   addLogEntry('正在准备传输...', 'info');
-        
-      //   // 模拟传输过程
-      //   simulateUpgradeProcess(file, device, upgradeLog);
-      // });
-
-    //   startUpgrade.addEventListener('click', async () => {
-    //     const file = modelFileInput.files[0];
-    //     const device = document.getElementById('targetDevice').value;
-        
-    //     if (!file) {
-    //         addLogEntry('错误：请选择模型文件', 'error');
-    //         return;
-    //     }
-        
-    //     if (!device) {
-    //         addLogEntry('错误：请选择目标设备', 'error');
-    //         return;
-    //     }
-        
-    //     addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
-    //     addLogEntry(`目标设备: ${device}`, 'info');
-    //     addLogEntry('正在准备传输...', 'info');
-        
-    //     // 实际传输模型文件
-    //     try {
-    //         const formData = new FormData();
-    //         formData.append('model', file);
-    //         formData.append('device', device);
-            
-    //         const uploadResponse = await fetch('/api/upload_model', {
-    //             method: 'POST',
-    //             body: formData
-    //         });
-            
-    //         const uploadResult = await uploadResponse.json();
-            
-    //         if (uploadResult.ok) {
-    //             addLogEntry('模型文件上传成功', 'info');
-    //             // 开始模拟升级过程（包括抓拍测试）
-    //             simulateUpgradeProcess(file, device, upgradeLog);
-    //         } else {
-    //             addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
-    //         }
-    //     } catch (error) {
-    //         addLogEntry(`上传请求失败: ${error.message}`, 'error');
-    //     }
-    // });
+    
+    // 模型升级
     startUpgrade.addEventListener('click', async () => {
       const file = modelFileInput.files[0];
       const device = document.getElementById('targetDevice').value;
+      const modelType = document.getElementById('modelType').value; // 获取模型类型
       
       if (!file) {
-          addLogEntry('错误：请选择模型文件', 'error');
-          return;
+        addLogEntry('错误：请选择模型文件', 'error');
+        return;
       }
       
       if (!device) {
-          addLogEntry('错误：请选择目标设备', 'error');
-          return;
+        addLogEntry('错误：请选择目标设备', 'error');
+        return;
       }
+      
+      if (!modelType) {
+        addLogEntry('错误：请选择模型类型', 'error');
+        return;
+      }
+      
+      // 获取模型类型对应的中文名称
+      const modelTypeNames = {
+        '11': '多曝光融合',
+        '22': '弱光增强',
+        '33': '异物检测',
+        '44': 'YOLO检测',
+        '55': '去雾'
+      };
+      const modelTypeName = modelTypeNames[modelType] || '未知类型';
       
       addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
       addLogEntry(`目标设备: ${device}`, 'info');
+      addLogEntry(`模型类型: ${modelTypeName}`, 'info');
       addLogEntry('正在准备传输...', 'info');
       
       // 实际传输模型文件
       try {
-          const formData = new FormData();
-          formData.append('model', file);
-          formData.append('device', device);
-          
-          addLogEntry('正在上传文件到服务器...', 'info');
-          
-          const uploadResponse = await fetch('/api/upload_model', {
-              method: 'POST',
-              body: formData
-          });
-          
-          // 检查响应状态
-          if (!uploadResponse.ok) {
-              throw new Error(`HTTP ${uploadResponse.status}: ${uploadResponse.statusText}`);
-          }
-          
-          // 解析JSON响应
-          const uploadResult = await uploadResponse.json();
-          
-          if (uploadResult.ok) {
-              addLogEntry('模型文件上传成功', 'info');
-              // 开始模拟升级过程（包括抓拍测试）
-              simulateUpgradeProcess(file, device, upgradeLog);
-          } else {
-              addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
-          }
+        const formData = new FormData();
+        formData.append('model', file);
+        formData.append('device', device);
+        formData.append('modelType', modelType); // 添加模型类型参数
+        
+        addLogEntry('正在上传文件到服务器...', 'info');
+        
+        const uploadResponse = await fetch('/api/upload_model', {
+          method: 'POST',
+          body: formData
+        });
+        
+        // 检查响应状态
+        if (!uploadResponse.ok) {
+          throw new Error(`HTTP ${uploadResponse.status}: ${uploadResponse.statusText}`);
+        }
+        
+        // 解析JSON响应
+        const uploadResult = await uploadResponse.json();
+        
+        if (uploadResult.ok) {
+          addLogEntry('模型文件上传成功', 'info');
+          // 开始模拟升级过程（包括抓拍测试）
+          simulateUpgradeProcess(file, device, upgradeLog);
+        } else {
+          addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
+        }
       } catch (error) {
-          console.error('上传错误详情:', error);
-          
-          // 提供更详细的错误信息
-          if (error.name === 'TypeError' && error.message.includes('JSON')) {
-              addLogEntry('上传请求失败: 服务器返回了非JSON响应，可能是服务器错误', 'error');
-          } else {
-              addLogEntry(`上传请求失败: ${error.message}`, 'error');
-          }
+        console.error('上传错误详情:', error);
+        
+        // 提供更详细的错误信息
+        if (error.name === 'TypeError' && error.message.includes('JSON')) {
+          addLogEntry('上传请求失败: 服务器返回了非JSON响应，可能是服务器错误', 'error');
+        } else {
+          addLogEntry(`上传请求失败: ${error.message}`, 'error');
+        }
       }
-  });
+    });
+  //   startUpgrade.addEventListener('click', async () => {
+  //     const file = modelFileInput.files[0];
+  //     const device = document.getElementById('targetDevice').value;
+      
+  //     if (!file) {
+  //         addLogEntry('错误：请选择模型文件', 'error');
+  //         return;
+  //     }
+      
+  //     if (!device) {
+  //         addLogEntry('错误：请选择目标设备', 'error');
+  //         return;
+  //     }
+      
+  //     addLogEntry(`开始上传模型文件: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`, 'info');
+  //     addLogEntry(`目标设备: ${device}`, 'info');
+  //     addLogEntry('正在准备传输...', 'info');
+      
+  //     // 实际传输模型文件
+  //     try {
+  //         const formData = new FormData();
+  //         formData.append('model', file);
+  //         formData.append('device', device);
+          
+  //         addLogEntry('正在上传文件到服务器...', 'info');
+          
+  //         const uploadResponse = await fetch('/api/upload_model', {
+  //             method: 'POST',
+  //             body: formData
+  //         });
+          
+  //         // 检查响应状态
+  //         if (!uploadResponse.ok) {
+  //             throw new Error(`HTTP ${uploadResponse.status}: ${uploadResponse.statusText}`);
+  //         }
+          
+  //         // 解析JSON响应
+  //         const uploadResult = await uploadResponse.json();
+          
+  //         if (uploadResult.ok) {
+  //             addLogEntry('模型文件上传成功', 'info');
+  //             // 开始模拟升级过程（包括抓拍测试）
+  //             simulateUpgradeProcess(file, device, upgradeLog);
+  //         } else {
+  //             addLogEntry(`模型文件上传失败: ${uploadResult.error}`, 'error');
+  //         }
+  //     } catch (error) {
+  //         console.error('上传错误详情:', error);
+          
+  //         // 提供更详细的错误信息
+  //         if (error.name === 'TypeError' && error.message.includes('JSON')) {
+  //             addLogEntry('上传请求失败: 服务器返回了非JSON响应，可能是服务器错误', 'error');
+  //         } else {
+  //             addLogEntry(`上传请求失败: ${error.message}`, 'error');
+  //         }
+  //     }
+  // });
       
       // 点击弹窗外部关闭
       upgradeModal.addEventListener('click', (e) => {

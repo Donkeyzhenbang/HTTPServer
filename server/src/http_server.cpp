@@ -648,6 +648,7 @@ void start_http_server() {
             std::string device;
             std::string model_filename;
             std::string model_content;
+            int modelType = 1;
             bool has_device = false;
             bool has_model = false;
             
@@ -666,6 +667,18 @@ void start_http_server() {
                 has_model = true;
                 std::cout << "[HTTP] 获取模型文件: " << model_filename 
                         << " (" << model_content.size() << " bytes)" << std::endl;
+            }
+
+            // 新增：检查modelType字段
+            if (req.form.has_field("modelType")) {
+                try {
+                    std::string modelTypeStr = req.form.get_field("modelType", 0);
+                    modelType = std::stoi(modelTypeStr);
+                    std::cout << "[HTTP] 获取模型类型: " << modelType << std::endl;
+                } catch (const std::exception& e) {
+                    std::cerr << "[HTTP] 解析模型类型失败: " << e.what() << std::endl;
+                    // 保持默认值
+                }
             }
             
             if (!has_device || device.empty()) {
@@ -708,6 +721,8 @@ void start_http_server() {
                 
                 std::cout << "[HTTP] 模型文件已保存到: " << temp_model_path 
                         << " (" << model_content.size() << " 字节)" << std::endl;
+                // 调用自动抓拍函数，使用前端传来的modelType作为通道号
+                std::cout << "[HTTP] 开始模型升级后抓拍测试，通道号: " << modelType << std::endl;
                 
                 // 检查测试图片是否存在
                 // std::string test_image_path = "web/uploads/test_image.jpg";
@@ -724,7 +739,7 @@ void start_http_server() {
                 // 调用自动抓拍函数，使用通道1
                 std::cout << "[HTTP] 开始模型升级后抓拍测试" << std::endl;
                 // int ret = SendModelToDevice(test_image_path.c_str(), 1, conn_ctx->connfd);
-                int ret = SendModelToDevice(temp_model_path.c_str(), 1, conn_ctx->connfd);
+                int ret = SendModelToDevice(temp_model_path.c_str(), modelType, conn_ctx->connfd);
                 
                 if (ret == 0) {
                     res.set_content(R"({"ok":true,"message":"模型文件上传成功，抓拍测试完成"})", "application/json");
