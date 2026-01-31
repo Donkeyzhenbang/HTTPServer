@@ -29,6 +29,7 @@ set(SOURCES
     src/sendfile.cpp
     src/clientmodelupgrade.cpp
     src/utils.cpp
+    src/connection.cpp
     third_party/jsondist/jsoncpp.cpp
 )
 
