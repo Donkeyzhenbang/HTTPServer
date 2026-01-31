@@ -96,20 +96,19 @@ static MyQueue que_buf;//所有的都会从这过
 
 int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd, int& model_script_channel)
 {
-    u_int8 frameType,packetType;
+    u_int8 frameType, packetType;
     getFramePacketType(pBuffer, &frameType, &packetType);
-    //根据帧类型和包类型，调用不同的处理函数
-    //查表，然后处理吗？
-    for(int i=0;i<sizeof(Handlers)/sizeof(HandlerFun);i++) {
+    //根据帧类型和包类型，调用不同的处理函数 这里设计有失误，后续其实并没有调用其他回调函数
+    for(int i = 0; i < sizeof(Handlers) / sizeof(HandlerFun); i ++) {
         if(Handlers[i].frameType == frameType && Handlers[i].packetType == packetType) {   
-            if(Handlers[i].func!=NULL) {
-                Handlers[i].func(pBuffer,Length,sockfd, model_script_channel);
+            if(Handlers[i].func != NULL) {
+                Handlers[i].func(pBuffer, Length, sockfd, model_script_channel);
             }
             return 0;
         }
     }
     //没找到，处理
-    printf("未处理协议 frameType = 0x%x, packetType = 0x%x\n",frameType,packetType);
+    printf("未处理协议 frameType = 0x%x, packetType = 0x%x\n",frameType, packetType);
     return -1;
 }
 

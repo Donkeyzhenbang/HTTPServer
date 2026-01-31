@@ -480,6 +480,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
             // unique_ptr<Packet_t> pPacket = make_unique<Packet_t>();//C++14，才有make_unique
 
             // recv_and_resolve(fd, pPacket.get(), pQueue);
+            //! 这里每次解析出来一个协议包 然后进行处理 队列中剩余部分不会动与下次新读进来的组成完整的数据包
             int ret = recv_and_resolve(fd, pPacket.get(), pQueue, &context->is_connection_alive);
             // if(ret < 0) break;
             if (ret < 0) {
@@ -604,6 +605,9 @@ void *HandleClient(void *arg) {
     SendHeartbeat(connfd);
     printf("已发送心跳协议 \n");
     mv_sleep(200);
+    //! 服务器处理逻辑 读线程每次最多读取2048字节，这里是每个字节逐个解析，而不是按包解析。
+    //! recv_and_resolve 函数是从队列中逐个字节取出并解析
+    //! 状态机解析组成完整包
     StartReadThread(context);   
     while (1) {
         Packet_t* pPacket = new Packet_t; 
@@ -615,7 +619,9 @@ void *HandleClient(void *arg) {
             delete pPacket;
             break;
         }
-        
+        //! 这里设计有问题，相当于第一次调用recv_and_resolve然后sFrameResolver先进行解析，解析出来时B351协议，
+        //! 然后进行顺序程序流再调用，其实这里最好应该每个包都不一样处理
+        //! 状态机暂时退出（返回0）触发条件：成功解析到一个完整的、校验正确的数据包
         // int ret = recv_and_resolve(connfd, pPacket, pQueue);
         int ret = recv_and_resolve(connfd, pPacket, pQueue, &context->is_connection_alive);
         printf("返回值%d, times = %d\n", ret, ++times);
