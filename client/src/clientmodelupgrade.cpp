@@ -72,7 +72,7 @@ static void remove_connection_context(int fd) {
     connection_manager.erase(fd);
 }
 
-static MyQueue que_buf;//所有的都会从这过
+// static MyQueue que_buf;//所有的都会从这过
 
 
 
@@ -321,95 +321,6 @@ int SendProtocolB38(int socket)
 
 
 
-// static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& model_script_channel)
-// {
-//     printf("接收到B351 05EF\n");
-//     //解析0x05EF帧，通道号，图像总包数
-//     struct ProtocolB351 *pB351 = (struct ProtocolB351*)pBuffer;
-//     //解析出来的通道号
-//     model_script_channel = pB351->channelNo; //通道号 模型升级 11多曝光融合 22弱光增强 33异物检测 44yolo 55去雾
-//     int packetLen = (pB351->packetHigh << 8) | (pB351->packetLow);//总包数
-//     printf("PacketLen : %d \n", packetLen);
-
-//     //动态内存管理
-//     vector<bool> recvStatus(packetLen, false);
-//     unsigned char* pPhotoBuffer = (unsigned char*)malloc( 1024 * packetLen);//每个包里面，最多携带1k的数据
-//     int PhotoFileSize = 0;
-//     static int pic_num = 0;
-//     //回复07EF
-//     SendProtocolB352(fd);
-//     printf("已发送B352 06EF \n");
-//     auto start = std::chrono::high_resolution_clock::now();
-//     //循环接收，直到收到05F1
-//     u_int8 frameType,packetType;
-//     //填入指针
-//     int index = 0;
-//     do {
-//         do{
-//             // Packet_t* pPacket = new Packet_t; 
-//             unique_ptr<Packet_t> pPacket(new Packet_t);//需要这种方式进行初始化
-//             // unique_ptr<Packet_t> pPacket = make_unique<Packet_t>();//C++14，才有make_unique
-
-//             recv_and_resolve(fd,pPacket.get());
-//             //从包中解析
-//             getFramePacketType(pPacket->packetBuffer, &frameType, &packetType);
-//             // printf("frameType=0x%x, packetType=0x%x\n",frameType,packetType);
-//             index ++;
-//             // printf("index = %d\n",index);
-//             //如果为05F0，则往图像缓冲区里写东西，下次循环再继续
-//             if(frameType==0x05 && packetType == 0xF0) {
-//                 //解析、子包包号
-//                 ProtocolPhotoData *pPhotoPacket = (ProtocolPhotoData *)pPacket->packetBuffer;
-//                 //图像数据段的长度，
-//                 u_int16 subpacketNo = pPhotoPacket->subpacketNo;
-//                 //把东西拷贝到图像缓冲区
-//                 memcpy(pPhotoBuffer+subpacketNo*1024,pPhotoPacket->sample,pPacket->packetLength-32-8); //!这里第一个参数是缓冲区内存 1032会溢出
-//                 PhotoFileSize += pPacket->packetLength - 32 - 8; //!注意这里图片大小
-
-//                 // printf("PhotoFileSize :%d, pPacket->packetLength : %d, 包数%d \n", PhotoFileSize, pPacket->packetLength, pic_num++);
-//                 recvStatus[subpacketNo] = true;
-//             }
-//             //如果为0x05F1，则退出这个循环了
-//             if(frameType==0x05 && packetType == 0xF1) {
-//                 //这里暂不处理
-//             }
-//             // delete pPacket;
-//         }while(!(frameType==0x05 && packetType == 0xF1));//当收到发送结束图片
-//         //补包流程
-//         //检查
-        
-//         auto end = std::chrono::high_resolution_clock::now();
-//         std::chrono::duration<double> elapsed = end - start;
-//         printf("收到B37协议 出循环 模型通道号为%d, 总共用时%f 图片接收完毕，无需补包！\n", model_script_channel, elapsed.count());
-//     }while(0);//当检查图片完整通过，退出
-//     int cnt = 0;
-//     for(int i=0;i<recvStatus.size();i++) {
-//         if(!recvStatus[i]) {
-//             printf("%d包,缺失\n",i);
-//             cnt ++;
-//         }
-//     }
-//     printf("缺失包数为 %d \n", cnt);
-//     //图片名缓冲
-    // char filename[100];
-//     auto now = std::chrono::system_clock::now();
-//     auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-//     std::time_t now_time_t = static_cast<std::time_t>(seconds);
-//     std::tm* local_time = std::localtime(&now_time_t);
-//     char time_str[20];
-//     strftime(time_str, sizeof(time_str), "%Y%m%d-%H%M%S", local_time);
-//     sprintf(filename,"model_CRM_V1_2048x2448.engine");
-//     //写入图片
-//     SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
-//     // mv_sleep(250);//延时保证图片可以顺利读取
-//     SendProtocolB38(fd);
-//     printf("图片大小 %d, 已发送B38 \n", PhotoFileSize);
-//     //结束
-//     //释放图像缓存
-//     free(pPhotoBuffer);
-//     GlobalFlag = true;
-//     return 0;
-// }
 
 static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& model_script_channel)
 {
