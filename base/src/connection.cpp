@@ -1,14 +1,8 @@
-// connection_manager.cpp
-#include "connection.h"
+#include "../inc/connection.h"
 #include <algorithm>
-#include <string>
-#include <vector>
-#include <mutex>
-#include <unordered_map>
-#include <iostream>
 
 // 全局连接管理器，使用文件描述符作为key
-std::unordered_map<int, std::unique_ptr<ConnectionContext>> connection_manager;
+std::unordered_map<int, std::shared_ptr<ConnectionContext>> connection_manager;
 std::mutex connection_manager_mutex;
 
 std::unordered_map<std::string, int> get_device_map() {
@@ -48,11 +42,33 @@ ConnectionContext* find_connection_by_device_id(const std::string& device_id) {
 
 ConnectionContext* find_connection_by_fd(int fd) {
     std::lock_guard<std::mutex> lock(connection_manager_mutex);
+    
     auto it = connection_manager.find(fd);
     if (it != connection_manager.end()) {
         return it->second.get();
     }
     return nullptr;
+}
+
+std::shared_ptr<ConnectionContext> get_connection_shared_ptr(int fd) {
+    std::lock_guard<std::mutex> lock(connection_manager_mutex);
+    auto it = connection_manager.find(fd);
+    if (it != connection_manager.end()) {
+        return it->second;
+    }
+    return nullptr; 
+}
+
+ConnectionContext* create_connection_context(int fd) {
+    std::lock_guard<std::mutex> lock(connection_manager_mutex);
+    auto context = std::make_shared<ConnectionContext>(fd);
+    auto result = connection_manager.emplace(fd, context);
+    return result.first->second.get();
+}
+
+void remove_connection_context(int fd) {
+    std::lock_guard<std::mutex> lock(connection_manager_mutex);
+    connection_manager.erase(fd);
 }
 
 size_t get_connection_count() {
@@ -62,31 +78,13 @@ size_t get_connection_count() {
 
 std::vector<std::pair<int, std::string>> get_all_connections() {
     std::lock_guard<std::mutex> lock(connection_manager_mutex);
-    
     std::vector<std::pair<int, std::string>> connections;
-    connections.reserve(connection_manager.size());
-    
     for (const auto& pair : connection_manager) {
-        std::string device_info = pair.second->hasDeviceId() 
-            ? pair.second->getDeviceId() 
-            : "未注册设备 (fd=" + std::to_string(pair.first) + ")";
-        connections.emplace_back(pair.first, device_info);
+        if (pair.second->hasDeviceId()) {
+            connections.push_back({pair.first, pair.second->getDeviceId()});
+        } else {
+             connections.push_back({pair.first, "未注册(FD:" + std::to_string(pair.first) + ")"});
+        }
     }
-    
-    // 按设备ID排序，有设备ID的排前面
-    std::sort(connections.begin(), connections.end(), 
-        [](const auto& a, const auto& b) {
-            // 如果都有设备ID，按字母排序
-            if (a.second.find("未注册") == std::string::npos && 
-                b.second.find("未注册") == std::string::npos) {
-                return a.second < b.second;
-            }
-            // 有设备ID的排前面
-            if (a.second.find("未注册") == std::string::npos) return true;
-            if (b.second.find("未注册") == std::string::npos) return false;
-            // 都是未注册设备，按fd排序
-            return a.first < b.first;
-        });
-    
     return connections;
 }

@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <chrono>   //用于时间相关函数
 #include "sendfile.h"
+#include "protocol.h" // Make sure to include protocol.h directly or via header
 #include "utils.h"
 #include "json.h"
 #include "alarmInfo.h"
@@ -60,22 +61,8 @@ struct __attribute__((packed)) ProtocolB342{
  * @brief 监拍装置请求上送照片报文格式
  * 
  */
-struct __attribute__((packed)) ProtocolB351{
-    u_int16 sync;
-    u_int16 packetLength;
+// ProtocolB351 moved to protocol.h
 
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    u_int8 packetHigh;
-    u_int8 packetLow;
-    char reverse[8];
-
-    u_int16 CRC16;
-    u_int8 End;
-};
 
 /**
  * @brief 远程图像数据上送结束标记数据报文B37

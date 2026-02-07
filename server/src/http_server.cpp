@@ -323,7 +323,11 @@ void start_http_server() {
 
     // GET /api/images - 添加通道过滤支持
     svr.Get("/api/images", [](const httplib::Request &req, httplib::Response &res) {
-        auto list = list_uploaded_files("web/uploads");
+        if (g_upload_dir.empty()) {
+            std::string exe_dir = get_exe_dir();
+            g_upload_dir = exe_dir + "/web/uploads";
+        }
+        auto list = list_uploaded_files(g_upload_dir);
         
         // 检查是否有通道过滤参数
         if (req.has_param("channel")) {

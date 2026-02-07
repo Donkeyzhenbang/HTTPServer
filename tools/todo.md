@@ -2,10 +2,10 @@
 
 ## 0. 现状速览（基于代码阅读）
 
-- 服务器 TCP：主线程 `accept` 后每连接一个线程，线程内先阻塞等心跳，再启动“读线程”把 socket 字节推进队列，然后主线程从队列解析帧并顺序处理：[main.cpp](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/main.cpp#L69-L103)、[HandleClient](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L593-L644)、[StartReadThread](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L169-L223)、[recv_and_resolve](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L236-L345)
-- 协议处理：用 `Handlers[]` 做 (frameType, packetType) 查表回调：[Handlers](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L79-L94)、[sFrameResolver](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L353-L370)
-- 图片接收：`RecvFileHandler` 内部再“自旋式”反复 `recv_and_resolve()` 直到收齐 F0/F1，这会把其它协议帧读走但不分发（心跳/设备注册等会被吞掉）：[RecvFileHandler](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L436-L524)
-- 前端加载图片：每次设置 `img.src` 都拼接 `?_=` 或 `?t=` + `Date.now()`，导致浏览器缓存永远失效： [index.html](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/bin/web/index.html#L1137-L1173)、[renderMainImage](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/bin/web/index.html#L1257-L1276)
+- 服务器 TCP：主线程 `accept` 后每连接一个线程，线程内先阻塞等心跳，再启动“读线程”把 socket 字节推进队列，然后主线程从队列解析帧并顺序处理：[main.cpp](../server/src/main.cpp#L69-L103)、[HandleClient](../server/src/recvfile.cpp#L593-L644)、[StartReadThread](../server/src/recvfile.cpp#L169-L223)、[recv_and_resolve](../server/src/recvfile.cpp#L236-L345)
+- 协议处理：用 `Handlers[]` 做 (frameType, packetType) 查表回调：[Handlers](../server/src/recvfile.cpp#L79-L94)、[sFrameResolver](../server/src/recvfile.cpp#L353-L370)
+- 图片接收：`RecvFileHandler` 内部再“自旋式”反复 `recv_and_resolve()` 直到收齐 F0/F1，这会把其它协议帧读走但不分发（心跳/设备注册等会被吞掉）：[RecvFileHandler](../server/src/recvfile.cpp#L436-L524)
+- 前端加载图片：每次设置 `img.src` 都拼接 `?_=` 或 `?t=` + `Date.now()`，导致浏览器缓存永远失效： [index.html](../server/bin/web/index.html#L1137-L1173)、[renderMainImage](../server/bin/web/index.html#L1257-L1276)
 
 ---
 
@@ -14,9 +14,9 @@
 ### 1.1 当前代码的核心问题（需要先修）
 
 - **顺序流吞包**：图片/模型等“大事务”在某个 handler 内部“独占读取”，把其它帧消费掉但不交给 `sFrameResolver()`，导致心跳/控制指令被舍弃（表现为“只有顺序流能跑”）。
-- **阻塞式握手**：连接建立后先 `waitForHeartBeat(connfd)` 直接 `read()`，此时读线程/解析器尚未统一接管输入流，后续扩展协议会越来越难维护：[HandleClient](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L600-L608)、[waitForHeartBeat](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/heartbeat.cpp#L82-L186)
-- **CPU/时延浪费**：读线程按字节 push 到 `std::queue`，解析线程反复 `size()+pop()`，并用 `nanosleep` 忙等；大量小包时 CPU 会被锁/自旋吃掉：[MyQueue](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/inc/connection.h#L14-L48)、[StartReadThread](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L169-L215)、[recv_and_resolve](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L257-L279)
-- **可靠性 bug**：读线程读到 `len==0` 会 `exit(EXIT_FAILURE)`，会把整个 server 进程直接杀掉（任何客户端断开都可能触发）：[StartReadThread](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L199-L205)
+- **阻塞式握手**：连接建立后先 `waitForHeartBeat(connfd)` 直接 `read()`，此时读线程/解析器尚未统一接管输入流，后续扩展协议会越来越难维护：[HandleClient](../server/src/recvfile.cpp#L600-L608)、[waitForHeartBeat](../server/src/heartbeat.cpp#L82-L186)
+- **CPU/时延浪费**：读线程按字节 push 到 `std::queue`，解析线程反复 `size()+pop()`，并用 `nanosleep` 忙等；大量小包时 CPU 会被锁/自旋吃掉：[MyQueue](../server/inc/connection.h#L14-L48)、[StartReadThread](../server/src/recvfile.cpp#L169-L215)、[recv_and_resolve](../server/src/recvfile.cpp#L257-L279)
+- **可靠性 bug**：读线程读到 `len==0` 会 `exit(EXIT_FAILURE)`，会把整个 server 进程直接杀掉（任何客户端断开都可能触发）：[StartReadThread](../server/src/recvfile.cpp#L199-L205)
 
 ### 1.2 目标形态（建议）
 
@@ -63,15 +63,15 @@
 
 当前前端每次加载图片都附带 `Date.now()`，等价于告诉浏览器“每次都重新下载整张图”，即使 Nginx 配了强缓存也完全无效：
 
-- 缩略图： [index.html](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/bin/web/index.html#L1154-L1173)
-- 主图： [renderMainImage](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/bin/web/index.html#L1257-L1271)
+- 缩略图： [index.html](../server/bin/web/index.html#L1154-L1173)
+- 主图： [renderMainImage](../server/bin/web/index.html#L1257-L1271)
 
 这会在阿里云公网环境下把“加载图片”变成纯带宽/延迟问题，表现就是卡。
 
 ### 2.2 后端侧的性能隐患（会拖慢 HTTP/静态资源）
 
-- TCP 收包的 per-byte 队列 + busy-wait 会把 2 核 CPU 吃满，进而让 HTTP 响应排队变慢：[MyQueue](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/inc/connection.h#L14-L48)、[recv_and_resolve](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L257-L279)
-- 读线程 `exit(EXIT_FAILURE)` 会导致进程频繁退出重启，用户侧看起来像“服务不稳定/加载很慢/偶发 404”：[StartReadThread](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/recvfile.cpp#L199-L205)
+- TCP 收包的 per-byte 队列 + busy-wait 会把 2 核 CPU 吃满，进而让 HTTP 响应排队变慢：[MyQueue](../server/inc/connection.h#L14-L48)、[recv_and_resolve](../server/src/recvfile.cpp#L257-L279)
+- 读线程 `exit(EXIT_FAILURE)` 会导致进程频繁退出重启，用户侧看起来像“服务不稳定/加载很慢/偶发 404”：[StartReadThread](../server/src/recvfile.cpp#L199-L205)
 
 ### 2.3 可落地优化手段（按收益排序）
 
@@ -79,7 +79,7 @@
    - 历史图片：去掉 `?_=` / `?t=`，让浏览器按文件名缓存（配合 Nginx `expires` 最有效）
    - 只对“刚拍完、同名覆盖”的场景加版本号；更推荐后端返回 `mtime`，前端用 `?v=<mtime>`，而不是 `Date.now()`
 2. **静态资源由 Nginx 直出**
-   - 确认 `/uploads/` 的 `alias` 路径与实际落盘目录一致（不一致会回落到应用层转发，性能会差）：[nginx 配置](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/config/nginx/transmission-platform#L37-L43)
+   - 确认 `/uploads/` 的 `alias` 路径与实际落盘目录一致（不一致会回落到应用层转发，性能会差）：[nginx 配置](../server/config/nginx/transmission-platform#L37-L43)
 3. **TCP 接收链路降 CPU**
    - 用 SPSC ring buffer 或 “批量 append + 条件变量”替换按字节 push/pop（避免自旋锁 + size()）
    - 去掉 busy-wait（100ms sleep + 轮询），改为条件变量唤醒或 `poll/epoll`
@@ -96,8 +96,8 @@
 
 ### 3.1 明显可复用点（已有重复）
 
-- CRC16、帧完整性校验、frameType/packetType 提取：[server/utils.*](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/utils.cpp#L83-L156)、[client/utils.h](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/client/inc/utils.h#L1-L22)
-- B351/B37/B342 等协议结构体与初始化/发送逻辑在多处重复：[client/sendfile.cpp](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/client/src/sendfile.cpp#L45-L236)、[server/modelupgrade.cpp](file:///c:/Users/%E5%AD%A3%E7%87%95%E9%93%AD/OneDrive/Desktop/gw-server/server/src/modelupgrade.cpp#L19-L257)
+- CRC16、帧完整性校验、frameType/packetType 提取：[server/utils.*](../server/src/utils.cpp#L83-L156)、[client/utils.h](../client/inc/utils.h#L1-L22)
+- B351/B37/B342 等协议结构体与初始化/发送逻辑在多处重复：[client/sendfile.cpp](../client/src/sendfile.cpp#L45-L236)、[server/modelupgrade.cpp](../server/src/modelupgrade.cpp#L19-L257)
 - 解析/等待某协议的“阻塞 read”模式在 client/server 都存在（后续改为统一 parser + dispatcher 时也应一起抽象）
 
 ### 3.2 抽库建议形态

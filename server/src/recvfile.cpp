@@ -32,40 +32,7 @@ static unsigned char buffer[1024] = {};
  * @brief 远程图像数据报
  * 
  */
-struct __attribute__((packed)) ProtocolPhotoData{
-    u_int16 sync;
-    u_int16 packetLength;
-
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    u_int16 packetNo; // 总包数
-    u_int16 subpacketNo; // 子包包号
-    int prefix_sample[2];
-    char sample[1024]; //!数据区暂定 后面修改  
-
-    u_int16 CRC16;
-    u_int8 End;
-};
-
-struct __attribute__((packed)) ProtocolB351{
-    u_int16 sync;
-    u_int16 packetLength;
-
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    u_int8 packetHigh;
-    u_int8 packetLow;
-    char reverse[8];
-
-    u_int16 CRC16;
-    u_int8 End;
-};
+// Moved to base/inc/protocol.h
 
 
 static int SampleHander(unsigned char* pBuffer, int Length, int fd);
@@ -99,33 +66,15 @@ struct HandlerFun Handlers [] = {
  * @return MyQueue* 队列指针，如果连接不存在返回nullptr
  */
 static MyQueue* get_connection_queue(int fd) {
-    auto it = connection_manager.find(fd);
-    if (it != connection_manager.end()) {
-        return it->second->queue.get();
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if (ctx) {
+        return ctx->queue.get();
     }
     return nullptr;
 }
 
-/**
- * @brief 创建新的连接上下文
- * 
- * @param fd 连接的文件描述符
- * @return ConnectionContext* 连接上下文指针
- */
-static ConnectionContext* create_connection_context(int fd) {
-    auto context = std::make_unique<ConnectionContext>(fd);
-    auto result = connection_manager.emplace(fd, std::move(context));
-    return result.first->second.get();
-}
-
-/**
- * @brief 删除连接上下文
- * 
- * @param fd 连接的文件描述符
- */
-static void remove_connection_context(int fd) {
-    connection_manager.erase(fd);
-}
+// Removed static create_connection_context - using base library version
+// Removed static remove_connection_context - using base library version
 
 
 
@@ -166,11 +115,12 @@ int waitForB342(int fd)
  * 
  * @param pContext 连接上下文
  */
-void StartReadThread(ConnectionContext* pContext)
+void StartReadThread(std::shared_ptr<ConnectionContext> pContext)
 {
-    GlobalFlag = false;
-    int ret = pthread_create(&pContext->read_thread, NULL, [](void* context_ptr)->void* {
-        ConnectionContext* context = static_cast<ConnectionContext*>(context_ptr);
+    pContext->is_processing_done = false;
+    
+    pContext->read_thread = std::thread([pContext]() {
+        auto context = pContext;
         MyQueue* pQueue = context->queue.get();
         int connfd = context->connfd;
         
@@ -178,30 +128,26 @@ void StartReadThread(ConnectionContext* pContext)
         shared_ptr<unsigned char[]> pRecvbuf(new unsigned char[2048]);
         int times = 0;
 
-        // 使子线程响应取消请求
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-        pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-        while(1) {
+        while(context->is_connection_alive) {
             int len = read(connfd, pRecvbuf.get(), 2048);
             if(len < 0) {
                 //出错
-                printf("%s\n", strerror(errno)); 
-                if(errno == EBADF) {
+                // 如果是连接重置，通常是客户端断开，不作为错误打印
+                if (errno == ECONNRESET) {
+                    printf("客户端断开连接 (Reset by peer)\n");
+                } else if(errno == EBADF) {
                     printf("Socket 通道已经关闭 无需处理\n");
                 }
                 else {
-                    printf("Socket Read出错\n");
+                    printf("Socket Read出错: %s\n", strerror(errno));
                 }
                 context->is_connection_alive = false;
-                return (void*) 0;
                 break;
             }
             else if (len == 0){
                 printf("客户端关闭连接\n");
                 context->is_connection_alive = false;
-                sleep(3);
-                exit(EXIT_FAILURE);
-                return (void*)0;
+                break;
             }
             for(int i=0;i<len;i++) {
                 pQueue->push(pRecvbuf.get()[i]);
@@ -210,16 +156,10 @@ void StartReadThread(ConnectionContext* pContext)
             if(times%100==0){
                 // printf("完成一次载入,times==%d\n",times);
             }
-            // 检查是否有取消请求
-            pthread_testcancel();
         }
-        return (void*) 0;
-    }, pContext);
-    if(ret){
-        //出错
-        return;
-    }
-    pthread_detach(pContext->read_thread);
+    });
+    
+    pContext->read_thread.detach();
 }
 
 
@@ -445,8 +385,14 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
 
     //动态内存管理
     vector<bool> recvStatus(packetLen, false);
-    unsigned char* pPhotoBuffer = (unsigned char*)malloc( 1024 * packetLen);//每个包里面，最多携带1k的数据
-    int PhotoFileSize = 0;
+    // 使用 calloc 初始化为0，防止丢包时写入垃圾数据
+    unsigned char* pPhotoBuffer = (unsigned char*)calloc(packetLen, 1024);
+    if (!pPhotoBuffer) {
+        printf("内存分配失败\n");
+        return -1;
+    }
+    int PhotoFileSize = 0; // 累计接收字节数
+    int maxOffset = 0;     // 记录最大有效数据偏移量
     static int pic_num = 0;
     //回复07EF
     SendProtocolB352(fd);
@@ -503,12 +449,22 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
                 ProtocolPhotoData *pPhotoPacket = (ProtocolPhotoData *)pPacket->packetBuffer;
                 //图像数据段的长度，
                 u_int16 subpacketNo = pPhotoPacket->subpacketNo;
+                // 数据部分长度
+                int dataLen = pPacket->packetLength - 32 - 8;
+                
                 //把东西拷贝到图像缓冲区
-                memcpy(pPhotoBuffer+subpacketNo*1024,pPhotoPacket->sample,pPacket->packetLength-32-8); //!这里第一个参数是缓冲区内存 1032会溢出
-                PhotoFileSize += pPacket->packetLength - 32 - 8; //!注意这里图片大小
-
-                // printf("PhotoFileSize :%d, pPacket->packetLength : %d, 包数%d \n", PhotoFileSize, pPacket->packetLength, pic_num++);
-                recvStatus[subpacketNo] = true;
+                if (subpacketNo < packetLen) {
+                    memcpy(pPhotoBuffer + subpacketNo * 1024, pPhotoPacket->sample, dataLen);
+                    PhotoFileSize += dataLen;
+                    
+                    int endPos = subpacketNo * 1024 + dataLen;
+                    if (endPos > maxOffset) {
+                        maxOffset = endPos;
+                    }
+                    recvStatus[subpacketNo] = true;
+                } else {
+                    printf("收到包号 %d 超出总包数 %d，丢弃\n", subpacketNo, packetLen);
+                }
             }
             //如果为0x05F1，则退出这个循环了
             if(frameType==0x05 && packetType == 0xF1) {
@@ -560,14 +516,15 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
         std::string fullpath = upload_dir + "/" + std::string(filename);
 
         // debug
-        printf("[RecvFileHandler] saving image to: %s (size=%d, channel=%d)\n", fullpath.c_str(), PhotoFileSize, channelNo);
+        printf("[RecvFileHandler] saving image to: %s (received=%d, max_offset=%d, channel=%d)\n", fullpath.c_str(), PhotoFileSize, maxOffset, channelNo);
 
         // 以二进制方式写入文件
         std::ofstream ofs(fullpath, std::ios::binary);
         if (!ofs) {
             fprintf(stderr, "[RecvFileHandler] 写文件失败: %s, errno=%d\n", fullpath.c_str(), errno);
         } else {
-            ofs.write(reinterpret_cast<const char*>(pPhotoBuffer), (std::streamsize)PhotoFileSize);
+            //以此处maxOffset为准，包含中间可能丢失的0填充部分
+            ofs.write(reinterpret_cast<const char*>(pPhotoBuffer), (std::streamsize)maxOffset);
             ofs.close();
         }
     }
@@ -579,7 +536,9 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     //结束
     //释放图像缓存
     free(pPhotoBuffer);
-    GlobalFlag = true;
+    // Set processing done flag for this connection
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if (ctx) ctx->is_processing_done = true;
     return 0;
 }
 
@@ -596,15 +555,34 @@ void *HandleClient(void *arg) {
     free(arg);  // 释放动态分配的内存
     
     // 为每个连接创建独立的队列和上下文
-    ConnectionContext* context = create_connection_context(connfd);
+    create_connection_context(connfd);
+    auto context = get_connection_shared_ptr(connfd);
     
     int times = 0;
     printf("新客户端线程启动...\n");
-    waitForHeartBeat(connfd);
+    HeartbeatFrame frame;
+    int ret = ReceiveHeartbeatFrame(connfd, &frame);
+    
+    if (ret == 0 && frame.frameType == 0x09) { // Client Request
+        // Register device ID
+        char device_id[18] = {0};
+        memcpy(device_id, frame.cmdId, 17);
+        std::cout << "收到心跳请求，设备ID: " << device_id << std::endl;
+        
+        // Use connection manager to set device ID
+        {
+            std::lock_guard<std::mutex> lock(connection_manager_mutex);
+            auto it = connection_manager.find(connfd);
+            if (it != connection_manager.end()) {
+                 it->second->setDeviceId(device_id);
+            }
+        }
+        SendHeartbeatResponse(connfd);
+    }
     printf("接收心跳完毕");
-    SendHeartbeat(connfd);
-    printf("已发送心跳协议 \n");
-    mv_sleep(200);
+    // SendHeartbeatResponse(connfd); // Removed extra response
+    // printf("已发送心跳协议 \n"); // Removed logging
+    mv_sleep(50); // Reduced sleep
     //! 服务器处理逻辑 读线程每次最多读取2048字节，这里是每个字节逐个解析，而不是按包解析。
     //! recv_and_resolve 函数是从队列中逐个字节取出并解析
     //! 状态机解析组成完整包
@@ -613,7 +591,7 @@ void *HandleClient(void *arg) {
         Packet_t* pPacket = new Packet_t; 
         
         // 获取当前连接的队列
-        MyQueue* pQueue = get_connection_queue(connfd);
+        MyQueue* pQueue = context ? context->queue.get() : nullptr;
         if (!pQueue) {
             printf("错误：找不到连接 %d 的队列\n", connfd);
             delete pPacket;
@@ -637,14 +615,14 @@ void *HandleClient(void *arg) {
         sFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd);
         delete pPacket;
 
-        if (GlobalFlag)
+        if (context->is_processing_done)
             break;
 
     }
     
     // 清理连接上下文
-    remove_connection_context(connfd);
     close(connfd);
+    remove_connection_context(connfd);
     printf("客户端线程结束...\n");
     pthread_exit(NULL);
 }

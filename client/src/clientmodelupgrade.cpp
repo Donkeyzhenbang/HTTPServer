@@ -61,16 +61,8 @@ static MyQueue* get_connection_queue(int fd) {
 }
 
 
-static ConnectionContext* create_connection_context(int fd) {
-    auto context = std::make_unique<ConnectionContext>(fd);
-    auto result = connection_manager.emplace(fd, std::move(context));
-    return result.first->second.get();
-}
-
-
-static void remove_connection_context(int fd) {
-    connection_manager.erase(fd);
-}
+// Removed static create_connection_context - using base library version
+// Removed static remove_connection_context - using base library version
 
 // static MyQueue que_buf;//所有的都会从这过
 
@@ -97,9 +89,9 @@ int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd, int& model_sc
 // TCP客户端接收线程
 void StartReadThread(ConnectionContext* pContext)
 {
-    GlobalFlag = false;
-    int ret = pthread_create(&pContext->read_thread, NULL, [](void* context_ptr)->void* {
-        ConnectionContext* context = static_cast<ConnectionContext*>(context_ptr);
+    // GlobalFlag = false; // Removed
+    pContext->read_thread = std::thread([pContext]() {
+        ConnectionContext* context = pContext;
         MyQueue* pQueue = context->queue.get();
         int connfd = context->connfd;
         
@@ -107,10 +99,7 @@ void StartReadThread(ConnectionContext* pContext)
         shared_ptr<unsigned char[]> pRecvbuf(new unsigned char[2048]);
         int times = 0;
 
-        // 使子线程响应取消请求
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-        pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-        while(1) {
+        while(context->is_connection_alive) {
             int len = read(connfd, pRecvbuf.get(), 2048);
             if(len < 0) {
                 //出错
@@ -122,15 +111,13 @@ void StartReadThread(ConnectionContext* pContext)
                     printf("Socket Read出错\n");
                 }
                 context->is_connection_alive = false;
-                return (void*) 0;
                 break;
             }
             else if (len == 0){
                 printf("客户端关闭连接\n");
                 context->is_connection_alive = false;
-                sleep(3);
-                exit(EXIT_FAILURE);
-                return (void*)0;
+                // exit(EXIT_FAILURE); // DON'T exit!
+                break;
             }
             for(int i=0;i<len;i++) {
                 pQueue->push(pRecvbuf.get()[i]);
@@ -139,16 +126,10 @@ void StartReadThread(ConnectionContext* pContext)
             if(times%100==0){
                 // printf("完成一次载入,times==%d\n",times);
             }
-            // 检查是否有取消请求
-            pthread_testcancel();
         }
-        return (void*) 0;
-    }, pContext);
-    if(ret){
-        //出错
-        return;
-    }
-    pthread_detach(pContext->read_thread);
+    });
+    
+    pContext->read_thread.detach();
 }
 
 

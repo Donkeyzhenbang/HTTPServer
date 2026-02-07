@@ -10,3 +10,4 @@ httpserver
 ImageSend
 client/build/*
 server/build/*
+base/build/*

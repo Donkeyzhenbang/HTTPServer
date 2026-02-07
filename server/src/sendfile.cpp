@@ -3,58 +3,14 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <cstring>
-#include "../inc/sendfile.h"
-#include "../inc/utils.h"
+#include "sendfile.h"
+#include "utils.h"
+#include "protocol.h"
 
+int ChannelNum = 5;
 
 #define CMD_ID "10370000123456789"  // CMD_ID，17位编码
 #define PIC_ID 0x0001               // 图片ID，4字节
-
-struct __attribute__((packed)) ProtocolB341{
-    u_int16 sync;
-    u_int16 packetLength;
-
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    char reverse[10];
-
-    u_int16 CRC16;
-    u_int8 End;
-};
-
-struct __attribute__((packed)) ProtocolB352{
-    u_int16 sync;
-    u_int16 packetLength;
-
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 upload_status;
-
-    u_int16 CRC16;
-    u_int8 End;
-};
-
-//! 此处为无需补包协议 后续补包再重新写 
-struct __attribute__((packed)) ProtocolB38{
-    u_int16 sync;
-    u_int16 packetLength;
-
-    char cmdId[17];
-    u_int8 frameType;
-    u_int8 packetType;
-    u_int8 frameNo;
-    u_int8 channelNo;
-    u_int16 ComplementPackSum;
-    char reverse[8];
-
-    u_int16 CRC16;
-    u_int8 End;
-};
 
 /**
  * @brief B341结构体初始化
@@ -121,7 +77,7 @@ void ProtocolB352FrameInit(ProtocolB352& frameData)
         .frameType = 0x06,
         .packetType = 0xEF,
         .frameNo = 0x00,
-        .upload_status = 0xFF,
+        .uploadStatus = 0xFF,
         .CRC16 = 0,
         .End = 0x96
     };

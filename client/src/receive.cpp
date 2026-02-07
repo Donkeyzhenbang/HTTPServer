@@ -90,30 +90,7 @@ struct HandlerFun Handlers [] = {
 };
 
 
-int waitForHeartBeat(int fd) 
-{
-    int len = read(fd,buffer,1024);
-    if(len < 0) {
-        //出错
-        printf("Heart Socket Read出错\n");
-        return -1;
-    }
-    int ret;
-    if((ret = CheckFrameFull(buffer, len))<0) {
-        printf("帧解析出错，不完整，错误码%d\n",ret);
-        deBugFrame(buffer,len);
-        return -1;
-    }
-    u_int8 frameType,packetType;
-    getFramePacketType(buffer, &frameType, &packetType);
-    if(frameType == 0xa && packetType == 0xE6) {
-        printf("接收到心跳协议\n");
-        deBugFrame(buffer,len);
-        return 0;
-    }
-    printf("收到其他包，没有收到心跳协议\n");
-    return -2;
-}
+// int waitForHeartBeat(int fd) moved to base library
 
 /**
  * @brief 等待接收B341协议
