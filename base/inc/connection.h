@@ -48,9 +48,33 @@ struct ConnectionContext {
     std::atomic<bool> is_connection_alive;
     std::atomic<bool> is_processing_done;
 
+    // File Transfer State (Moving from local variables in RecvFileHandler)
+    enum TransferState {
+        IDLE,
+        RECEIVING
+    };
+    TransferState transferState = IDLE;
+    unsigned char* pPhotoBuffer = nullptr; // Buffer for the current file
+    int packetLen = 0;                     // Total packets expected
+    int channelNo = 0;                     // Current channel
+    int PhotoFileSize = 0;                 // Bytes received
+    int maxOffset = 0;                     // Max offset written
+    std::vector<bool> recvStatus;          // Packet received status
+
     ConnectionContext(int fd) : connfd(fd), is_connection_alive(true), is_processing_done(false) {
         queue = std::make_unique<MyQueue>();
         std::memset(device_id, 0, sizeof(device_id));
+        pPhotoBuffer = nullptr;
+    }
+
+    ~ConnectionContext() {
+        if(pPhotoBuffer) {
+            free(pPhotoBuffer);
+            pPhotoBuffer = nullptr;
+        }
+        if(read_thread.joinable()) {
+            read_thread.detach(); // or join if we want
+        }
     }
     
     // 禁止拷贝和赋值，因为包含unique_ptr
