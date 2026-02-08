@@ -10,7 +10,12 @@
 
 int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive);
 int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd);
-void StartReadThread(int* pSocketId,pthread_t* tId);
+
+// New Reactor Interface
+void OnClientRead(int fd); // Output from IO Loop
+void ProcessConnection(int fd); // Task for Worker Pool
+
+// Legacy (Deprecated but kept if needed for linking transitional code)
 extern "C" void *HandleClient(void *arg);
 void *HandleMCU(void *arg);
 

@@ -10,6 +10,7 @@
 #include <atomic>
 #include <time.h>
 #include <chrono>
+#include <sys/select.h>
 
 // Helper to calculate CRC and fill the field
 template<typename T>
@@ -122,6 +123,36 @@ void ProtocolB38FrameInit(struct ProtocolB38 &frameData) {
     packet_crc_cal(&frameData);
 }
 
+// Helper for Reliable Send on Non-Blocking Sockets
+static int SafeSend(int socket, const void* buffer, size_t length) {
+    const uint8_t* ptr = (const uint8_t*)buffer;
+    size_t remaining = length;
+    int retry_count = 0;
+    
+    while (remaining > 0) {
+        ssize_t sent = send(socket, ptr, remaining, MSG_NOSIGNAL);
+        if (sent < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (retry_count++ > 50) { // Timeout approx 500ms
+                    std::cerr << "SafeSend Timeout (EAGAIN)" << std::endl;
+                    return -1;
+                }
+                usleep(10000); // 10ms
+                continue;
+            } else if (errno == EINTR) {
+                continue;
+            } else {
+                perror("SafeSend Error");
+                return -1;
+            }
+        }
+        ptr += sent;
+        remaining -= sent;
+        retry_count = 0;
+    }
+    return length;
+}
+
 // ----------------------------------------------------------------------------
 // Send Implementations
 // ----------------------------------------------------------------------------
@@ -129,53 +160,44 @@ void ProtocolB38FrameInit(struct ProtocolB38 &frameData) {
 int SendProtocolB341(int socket, int channelNo) {
     ProtocolB341 frameData;
     ProtocolB341FrameInit(frameData, channelNo);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
-    // fsync(socket); // fsync not valid for sockets
-    return ret;
+    return SafeSend(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB342(int socket) {
     ProtocolB342 frameData;
     ProtocolB342FrameInit(frameData);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
-    // fsync(socket);
-    return ret;
+    return SafeSend(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB351(int socket, u_int8 channelNo, u_int16 packetLen) {
     ProtocolB351 frameData;
     ProtocolB351FrameInit(frameData, channelNo, packetLen);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
-    // fsync(socket);
-    return ret;
+    return SafeSend(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB352(int socket) {
     ProtocolB352 frameData;
     ProtocolB352FrameInit(frameData);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
+    int ret = SafeSend(socket, &frameData, sizeof(frameData));
     if(ret > 0) std::cout << "已发送B352" << std::endl;
     else std::cerr << "发送B352失败" << std::endl;
-    // fsync(socket);
     return ret;
 }
 
 int SendProtocolB37(int socket, unsigned char* pBuffer, int Length, u_int8 channelNo) {
     ProtocolB37 frameData;
     ProtocolB37FrameInit(frameData, pBuffer, Length, channelNo);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
+    int ret = SafeSend(socket, &frameData, sizeof(frameData));
     if(ret > 0) std::cout << "发送B37结束" << std::endl;
-    // fsync(socket);
     return ret;
 }
 
 int SendProtocolB38(int socket) {
     ProtocolB38 frameData;
     ProtocolB38FrameInit(frameData);
-    int ret = send(socket, &frameData, sizeof(frameData), MSG_NOSIGNAL);
-    // fsync(socket);
-    return ret;
+    return SafeSend(socket, &frameData, sizeof(frameData));
 }
+
 
 // ----------------------------------------------------------------------------
 // New Protocol Implementation (B313, PhotoData)
@@ -430,6 +452,22 @@ int RecvPacketBlocking(int sockfd, Packet_t* outPacket) {
     
     // We loop until one full packet is read or error
     while(!packetBufferStatus) {
+        // Wait for data with timeout (10s) to prevent client hang
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(sockfd, &readfds);
+        struct timeval tv; 
+        tv.tv_sec = 10; 
+        tv.tv_usec = 0;
+        
+        int sret = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+        if (sret < 0) {
+             if (errno == EINTR) continue;
+             return -1;
+        } else if (sret == 0) {
+             return -1; // Timeout
+        }
+
         ssize_t n = read(sockfd, &rx_temp, 1);
         if(n <= 0) {
              return -1; // Error or Closed

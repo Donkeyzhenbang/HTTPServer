@@ -9,11 +9,8 @@
 #include <sys/stat.h>
 #include <vector>
 #include <filesystem>
-
-// Include necessary headers from project
+#include "ServerApp.h"
 #include "ClientApp.h"
-#include "utils.h"
-#include "recvfile.h"
 
 namespace fs = std::filesystem;
 
@@ -23,13 +20,13 @@ size_t create_test_env(const std::string& source_img_path) {
     system("mkdir -p ../resource/photos");
     system("mkdir -p ../resource/uploads");
 
-    // Create config.json
+    // Create config.json with PORT 52487 (Server Default)
     std::ofstream config("../configs/config.json");
     if(config.is_open()) {
         config << "{\n"
                << "  \"network\": {\n"
                << "    \"default_ip\": \"127.0.0.1\",\n"
-               << "    \"default_port\": 9988\n"
+               << "    \"default_port\": 52487\n"
                << "  },\n"
                << "  \"photos\": {\n"
                << "      \"paths\": [\n"
@@ -76,56 +73,38 @@ TEST(IntegrationTest, FullImageTransfer) {
     std::string img_path = "../resource/photos/test_img.jpg";
     size_t expected_size = create_test_env(img_path);
 
-    // Debug: List files to ensure existence
-    // system("ls -R ../configs ../resource");
+    // 1. Start Server Logic
+    // We run the actual ServerApp which uses Reactor/EventLoop
+    std::thread server_thread([](){
+        ServerApp::getInstance().run();
+    });
+    server_thread.detach(); // Allow it to run in background (EventLoop blocks)
 
-    // 1. Setup Server Socket
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    ASSERT_GT(server_fd, 0);
-    
-    int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    addr.sin_port = htons(9988);
-
-    ASSERT_EQ(bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)), 0);
-    ASSERT_EQ(listen(server_fd, 5), 0);
+    // Give server time to bind
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // 2. Start Client Thread
+    // ClientApp connects to localhost:52487 based on config.json
     std::thread client_thread([]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         ClientApp::getInstance().run(1);
     });
 
-    // 3. Accept Connection
-    struct sockaddr_in client_addr;
-    socklen_t len = sizeof(client_addr);
-    int client_conn = accept(server_fd, (struct sockaddr*)&client_addr, &len);
-    ASSERT_GT(client_conn, 0);
-
-    // 4. Run Server Handler in a thread to handle pthread_exit
-    int* pFd = (int*)malloc(sizeof(int));
-    *pFd = client_conn;
-    
-    std::thread server_thread(HandleClient, pFd);
-
-    // 5. Cleanup
+    // 3. Wait for client to completion
     if(client_thread.joinable()) {
         client_thread.join();
     }
-    if(server_thread.joinable()) {
-        server_thread.join();
-    }
-    close(server_fd);
 
-    // 6. Verify File Transfer
+    // Stop EventLoop (won't unblock accept wait immediately, but cleans flag)
+    ServerApp::getInstance().getEventLoop().Stop();
+    
+    // 4. Verify File Transfer
     // Check if file exists in uploads that contains "test_img"
     bool found = false;
     std::string upload_path = "../resource/uploads";
     
+    // Give OS time to flush writes if any
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
     if(fs::exists(upload_path)) {
         for(const auto& entry : fs::directory_iterator(upload_path)) {
             std::string name = entry.path().filename().string();
@@ -135,6 +114,11 @@ TEST(IntegrationTest, FullImageTransfer) {
                 found = true;
                 std::cout << "Found uploaded file: " << name << " Size: " << entry.file_size() << std::endl;
                 // Verify size
+                if (entry.file_size() == expected_size) {
+                    // Pass
+                } else {
+                    std::cout << "Size mismatch! Expected " << expected_size << " Got " << entry.file_size() << std::endl;
+                }
                 EXPECT_EQ(entry.file_size(), expected_size);
                 
                 // Cleanup

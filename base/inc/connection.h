@@ -61,10 +61,16 @@ struct ConnectionContext {
     int maxOffset = 0;                     // Max offset written
     std::vector<bool> recvStatus;          // Packet received status
 
-    ConnectionContext(int fd) : connfd(fd), is_connection_alive(true), is_processing_done(false) {
+    // Reactor Buffer
+    std::vector<uint8_t> inputBuffer;
+    std::mutex bufferMutex;
+    std::atomic<bool> is_processing;       // Is a worker thread currently processing this context?
+
+    ConnectionContext(int fd) : connfd(fd), is_connection_alive(true), is_processing_done(false), is_processing(false) {
         queue = std::make_unique<MyQueue>();
         std::memset(device_id, 0, sizeof(device_id));
         pPhotoBuffer = nullptr;
+        inputBuffer.reserve(4096);
     }
 
     ~ConnectionContext() {

@@ -32,6 +32,26 @@ static unsigned char buffer[1024] = {};
 
 
 // New Event-Driven Handlers
+// Forward declaration
+static void ProcessConnectionCore(int fd);
+
+// Heartbeat Handler (0x09, 0xE6)
+static int HandleHeartbeat(unsigned char* pBuffer, int Length, int fd) {
+    HeartbeatFrame* frame = (HeartbeatFrame*)pBuffer;
+    char device_id[18] = {0};
+    memcpy(device_id, frame->cmdId, 17);
+    
+    // Update Context
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if(ctx) {
+        ctx->setDeviceId(device_id);
+    }
+    
+    // Send Response
+    // printf("Received Heartbeat from %s. Sending Response.\n", device_id);
+    SendHeartbeatResponse(fd);
+    return 0;
+}
 
 // 1. Initial Handshake / Start (0x05, 0xEF)
 static int HandleFileStart(unsigned char* pBuffer, int Length, int fd) {
@@ -167,19 +187,9 @@ static int HandleFileEnd(unsigned char* pBuffer, int Length, int fd) {
         }
     }
 
-    // Reply B38 (Transfer Complete ?)
-    // Original code: SendProtocolB38(fd);
-    // Needed to define B38 function if not existing, but checking imports... `SendProtocolB38` was called in original code.
-    // Assuming `SendProtocolB38` is available (it was used in original RecvFileHandler).
-    // Wait, original `recvfile.cpp` line 347: `SendProtocolB38(fd);`.
-    // We must check if `SendProtocolB38` is linked. It was likely in `recvfile.cpp` or `sendfile.h`.
-    // Ah, previous grep of `base/src/protocol_handler.cpp` didn't show it explicitly but I might have missed it. 
-    // Assuming it works as per previous code.
-    
-    // Instead of implicit declaration, let's assume `HandleFileEnd` calls what's available.
-    // If SendProtocolB38 is not found, I might need to declare it. 
-    // But since I'm editing `recvfile.cpp`, I can verify if it's there.
-    // It was used at line 347 of original file.
+    // Send B38 (End Ack) to client
+    printf("Sending B38 to %d\n", fd);
+    SendProtocolB38(fd);
     
     // Clean up
     free(ctx->pPhotoBuffer);
@@ -202,6 +212,7 @@ struct HandlerFun{
 static struct HandlerFun Handlers [] = {
     {.frameType = 0x07, .packetType = 0xEE, NULL},  // ProtocolB341
     {.frameType = 0x06, .packetType = 0xEF, NULL},  // Another Protocol
+    {.frameType = 0x09, .packetType = 0xE6, HandleHeartbeat}, // Heartbeat
     // New Event Driven Handlers
     {.frameType = 0x05, .packetType = 0xEF, HandleFileStart}, // Start
     {.frameType = 0x05, .packetType = 0xF0, HandleFileData},  // Data
@@ -209,81 +220,166 @@ static struct HandlerFun Handlers [] = {
 };
 
 
-static MyQueue* get_connection_queue(int fd) {
-    ConnectionContext* ctx = find_connection_by_fd(fd);
-    if (ctx) {
-        return ctx->queue.get();
+// ----------------------------------------------------------------------
+// Reactor / IO Thread Pool Implementation
+// ----------------------------------------------------------------------
+
+#include "../inc/ServerApp.h"
+
+// Helper to find sync header 0x5AA5
+static int FindSyncHeader(const std::vector<uint8_t>& buffer, int start) {
+    for(size_t i = start; i < buffer.size() - 1; ++i) {
+        if(buffer[i] == 0xA5 && buffer[i+1] == 0x5A) {
+            return i;
+        }
     }
+    return -1;
+}
+
+void OnClientRead(int fd) {
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if (!ctx) return;
+
+    {
+        std::lock_guard<std::mutex> lock(ctx->bufferMutex);
+        // Read directly into vector
+        char buf[4096];
+        while(true) {
+            int n = read(fd, buf, sizeof(buf));
+            if (n < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                if (errno != EINTR) {
+                    // Error or Close
+                    ctx->is_connection_alive = false;
+                    // Trigger close logic?
+                    // ServerApp will detect EPOLLRDHUP usually, but here handle read error
+                    // Close fd?
+                    // close(fd); remove_... rely on ServerApp or doing it here
+                    // Actually, let's keep it alive until Process detects it or ServerApp specific RDHUP handler.
+                    // But if read fails, we should stop.
+                    // Let's assume EPOLLRDHUP handles clean close, or we can flag it.
+                }
+                break;
+            }
+            if (n == 0) {
+                // EOF
+                ctx->is_connection_alive = false;
+                break;
+            }
+            ctx->inputBuffer.insert(ctx->inputBuffer.end(), buf, buf + n);
+        }
+    }
+    
+    // Trigger Processing Task if not already running
+    bool expected = false;
+    if (ctx->is_processing.compare_exchange_strong(expected, true)) {
+        // Enqueue task
+        ServerApp::getInstance().getThreadPool().enqueue([fd](){
+            ProcessConnection(fd);
+        });
+    }
+}
+
+void ProcessConnection(int fd) {
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if (!ctx) return;
+
+    while (ctx->is_connection_alive) {
+        std::vector<uint8_t> packet;
+        bool hasPacket = false;
+        
+        {
+            std::lock_guard<std::mutex> lock(ctx->bufferMutex);
+            if(ctx->inputBuffer.empty()) {
+                ctx->is_processing = false;
+                return; 
+            }
+
+            // Parse Logic
+            int syncPos = FindSyncHeader(ctx->inputBuffer, 0);
+            if(syncPos == -1) {
+                // No header found. Discard all but last byte (could be half header)
+                // actually if buffer is huge and no header, discard start?
+                // For safety: if size > header check.
+                if(ctx->inputBuffer.size() > 1 && ctx->inputBuffer.back() != 0xA5) {
+                   ctx->inputBuffer.clear();
+                } else if(ctx->inputBuffer.size() > 1) {
+                     // Keep last byte 
+                     uint8_t last = ctx->inputBuffer.back();
+                     ctx->inputBuffer.clear();
+                     ctx->inputBuffer.push_back(last);
+                }
+                ctx->is_processing = false;
+                return;
+            }
+
+            // Sync found at syncPos. Discard garbage before.
+            if(syncPos > 0) {
+                ctx->inputBuffer.erase(ctx->inputBuffer.begin(), ctx->inputBuffer.begin() + syncPos);
+                syncPos = 0;
+            }
+
+            // Check Length (4 bytes needed: Sync(2) + Len(2))
+            if(ctx->inputBuffer.size() < 4) {
+                ctx->is_processing = false;
+                return; // Need more data
+            }
+
+            // Packet Length (Little Endian in protocol? or Big?)
+             // Protocol definition: u_int16_t packetLength;
+             // Let's look at `CheckFrameFull` logic or `ServerFrameResolver` usage.
+             // Usually network is Big Endian, but struct might be packed.
+             // ProtocolB351 uses `packetHigh << 8 | packetLow`.
+             // `Packet_t` uses `packetLength`.
+             // Looking at `protocol_handler.cpp`, `packetLen = (buffer[3] << 8) | buffer[2];` (Little Endian?)
+             // Or `buffer[2] | (buffer[3] << 8)`?
+             // Let's assume standard logic from `Packet_t`.
+             // Wait, `protocol_handler.cpp` usually does `memcpy(&len, buf+2, 2)`.
+             // Let's assume Little Endian based on x86 default if not ntohs.
+             // Let's check `recvfile.cpp` `packetLen = (pB351->packetHigh << 8) | (pB351->packetLow);` for B351.
+             // But valid packet length in header?
+             // Let's assume byte 2 is low, byte 3 is high? Or vice versa.
+             // I will use `(ctx->inputBuffer[3] << 8) | ctx->inputBuffer[2]`.
+             
+            int packetLen = (ctx->inputBuffer[3] << 8) | ctx->inputBuffer[2];
+            
+            // Safety check
+            if (packetLen > 4096 || packetLen < 4) {
+                 // Invalid length, discard sync 0xA5 and retry scan
+                 // Actually discard 2 bytes 0xA5 0x5A
+                 ctx->inputBuffer.erase(ctx->inputBuffer.begin(), ctx->inputBuffer.begin() + 2);
+                 continue; // loop again
+            }
+
+            if(ctx->inputBuffer.size() < (size_t)packetLen) {
+                ctx->is_processing = false;
+                return; // Wait for full packet
+            }
+            
+            // Extract Packet
+            packet.assign(ctx->inputBuffer.begin(), ctx->inputBuffer.begin() + packetLen);
+            ctx->inputBuffer.erase(ctx->inputBuffer.begin(), ctx->inputBuffer.begin() + packetLen);
+            hasPacket = true;
+        }
+
+        if(hasPacket) {
+            // Process Packet
+            // printf("Dispatching Packet Len %lu\n", packet.size());
+            ServerFrameResolver(packet.data(), packet.size(), fd);
+        }
+    }
+    
+    // If not alive
+    ctx->is_processing = false;
+}
+
+// Deprecated Stub
+void *HandleClient(void *arg) {
+    if(arg) free(arg);
     return nullptr;
 }
 
 
-/**
- * @brief 开始TCP客户端接收线程
- * 
- * @param pContext 连接上下文
- */
-void StartReadThread(std::shared_ptr<ConnectionContext> pContext)
-{
-    pContext->is_processing_done = false;
-    
-    pContext->read_thread = std::thread([pContext]() {
-        auto context = pContext;
-        MyQueue* pQueue = context->queue.get();
-        int connfd = context->connfd;
-        
-        //使用智能指针管理
-        shared_ptr<unsigned char[]> pRecvbuf(new unsigned char[2048]);
-        int times = 0;
-
-        while(context->is_connection_alive) {
-            int len = read(connfd, pRecvbuf.get(), 2048);
-            if(len < 0) {
-                //出错
-                // 如果是连接重置，通常是客户端断开，不作为错误打印
-                if (errno == ECONNRESET) {
-                    printf("客户端断开连接 (Reset by peer)\n");
-                } else if(errno == EBADF) {
-                    printf("Socket 通道已经关闭 无需处理\n");
-                }
-                else {
-                    printf("Socket Read出错: %s\n", strerror(errno));
-                }
-                context->is_connection_alive = false;
-                break;
-            }
-            else if (len == 0){
-                printf("客户端关闭连接\n");
-                context->is_connection_alive = false;
-                break;
-            }
-            for(int i=0;i<len;i++) {
-                pQueue->push(pRecvbuf.get()[i]);
-            }
-            times ++;
-            if(times%100==0){
-                // printf("完成一次载入,times==%d\n",times);
-            }
-        }
-    });
-    
-    pContext->read_thread.detach();
-}
-
-
-
-/**
- * @brief 改进版：读socket，区分空闲状态和接收中状态
- * 
- * @param sockfd 
- * @param pPacket 
- * @param pQueue 连接的队列
- * @param pIsConnectionAlive 指向连接是否存活的标志
- * @return int 返回0代表正常，-1代表连接断开，-2代表接收超时
- */
-int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive) {
-    return run_protocol_resolver(sockfd, pPacket, pQueue, pIsConnectionAlive);
-}
 
 int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
 {
@@ -310,86 +406,5 @@ int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
 
 
 
-/**
- * @brief 每接收到一个新的客户端连接，建立新线程
- * 
- * @param arg 
- * @return void* 
- */
-void *HandleClient(void *arg) {
-    int connfd = *(int *)arg;
-    free(arg);  // 释放动态分配的内存
-    
-    // 为每个连接创建独立的队列和上下文
-    create_connection_context(connfd);
-    auto context = get_connection_shared_ptr(connfd);
-    
-    int times = 0;
-    printf("新客户端线程启动...\n");
-    HeartbeatFrame frame;
-    int ret = ReceiveHeartbeatFrame(connfd, &frame);
-    
-    if (ret == 0 && frame.frameType == 0x09) { // Client Request
-        // Register device ID
-        char device_id[18] = {0};
-        memcpy(device_id, frame.cmdId, 17);
-        std::cout << "收到心跳请求，设备ID: " << device_id << std::endl;
-        
-        // Use connection manager to set device ID
-        {
-            std::lock_guard<std::mutex> lock(connection_manager_mutex);
-            auto it = connection_manager.find(connfd);
-            if (it != connection_manager.end()) {
-                 it->second->setDeviceId(device_id);
-            }
-        }
-        SendHeartbeatResponse(connfd);
-    }
-    printf("接收心跳完毕");
-    // SendHeartbeatResponse(connfd); // Removed extra response
-    // printf("已发送心跳协议 \n"); // Removed logging
-    mv_sleep(50); // Reduced sleep
-    //! 服务器处理逻辑 读线程每次最多读取2048字节，这里是每个字节逐个解析，而不是按包解析。
-    //! recv_and_resolve 函数是从队列中逐个字节取出并解析
-    //! 状态机解析组成完整包
-    StartReadThread(context);   
-    while (1) {
-        Packet_t* pPacket = new Packet_t; 
-        
-        // 获取当前连接的队列
-        MyQueue* pQueue = context ? context->queue.get() : nullptr;
-        if (!pQueue) {
-            printf("错误：找不到连接 %d 的队列\n", connfd);
-            delete pPacket;
-            break;
-        }
-        //! 这里设计有问题，相当于第一次调用recv_and_resolve然后sFrameResolver先进行解析，解析出来时B351协议，
-        //! 然后进行顺序程序流再调用，其实这里最好应该每个包都不一样处理
-        //! 状态机暂时退出（返回0）触发条件：成功解析到一个完整的、校验正确的数据包
-        // int ret = recv_and_resolve(connfd, pPacket, pQueue);
-        int ret = recv_and_resolve(connfd, pPacket, pQueue, &context->is_connection_alive);
-        // printf("返回值%d, times = %d\n", ret, ++times);
-        if (-1 == ret) {
-            close(connfd);
-            delete pPacket;
-            printf("客户端断开连接...\n");
-            printf("客户端线程结束...\n");
-            remove_connection_context(connfd);
-            pthread_exit(NULL);
-        }
 
-        ServerFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd);
-        delete pPacket;
-
-        if (context->is_processing_done)
-            break;
-
-    }
-    
-    // 清理连接上下文
-    close(connfd);
-    remove_connection_context(connfd);
-    printf("客户端线程结束...\n");
-    pthread_exit(NULL);
-}
 

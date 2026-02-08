@@ -1,7 +1,7 @@
 {
   "network": {
     "default_ip": "127.0.0.1",
-    "default_port": 9988
+    "default_port": 52487
   },
   "photos": {
       "paths": [

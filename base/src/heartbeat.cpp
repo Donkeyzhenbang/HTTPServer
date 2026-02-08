@@ -2,6 +2,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <chrono>
 #include "../inc/heartbeat.h"
 #include "../inc/utils.h"
@@ -37,21 +38,30 @@ static void InitHeartbeatFrame(HeartbeatFrame &frameData, uint8_t frameType, uin
 int SendHeartbeatRequest(int fd)
 {
     HeartbeatFrame frame;
-    InitHeartbeatFrame(frame, 0x09, 0x0004);
-    deBugFrame((unsigned char*)&frame, sizeof(frame));
+    InitHeartbeatFrame(frame, 0x09, (uint16_t)sizeof(frame));
+    // deBugFrame((unsigned char*)&frame, sizeof(frame));
     return write(fd, &frame, sizeof(frame));
 }
 
 int SendHeartbeatResponse(int fd)
 {
     HeartbeatFrame frame;
-    InitHeartbeatFrame(frame, 0x0A, 0x0004);
+    InitHeartbeatFrame(frame, 0x0A, (uint16_t)sizeof(frame));
     return write(fd, &frame, sizeof(frame));
 }
 
 int ReceiveHeartbeatFrame(int fd, HeartbeatFrame* outFrame)
 {
     unsigned char buffer[1024];
+    
+    // Add Timeout for safety
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(fd, &readfds);
+    struct timeval tv = {5, 0}; // 5s timeout
+    int sret = select(fd + 1, &readfds, NULL, NULL, &tv);
+    if (sret <= 0) return -1;
+
     int len = read(fd, buffer, sizeof(buffer));
     
     if (len <= 0) {

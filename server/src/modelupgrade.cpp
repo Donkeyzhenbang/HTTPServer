@@ -10,7 +10,7 @@
 #include <cstdio>
 
 // Helpers using Base WaitForProtocol
-int waitForB352(int fd) {
+static int waitForB352(int fd) {
     // Expected: Type 0x06, Packet 0xEF
     if(WaitForProtocol(fd, 0x06, 0xEF, nullptr, 0) == 0) {
         printf("接收到B352协议\n");
@@ -20,7 +20,7 @@ int waitForB352(int fd) {
     return -1;
 }
 
-int waitForB38(int fd) {
+static int waitForB38(int fd) {
     // Expected: Type 0x06, Packet 0xF2
     if(WaitForProtocol(fd, 0x06, 0xF2, nullptr, 0) == 0) {
         printf("接收到B38协议\n");

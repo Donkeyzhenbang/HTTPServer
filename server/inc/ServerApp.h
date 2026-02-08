@@ -6,11 +6,18 @@
 #include <thread>
 #include <mutex>
 #include <unordered_map>
+#include <memory>
+#include "EventLoop.h"
+#include "../../base/inc/threadpool.h"
 
 class ServerApp {
 public:
     static ServerApp& getInstance();
     void run();
+    
+    // Accessors for callbacks
+    EventLoop& getEventLoop() { return eventLoop; };
+    ThreadPool& getThreadPool() { return threadPool; };
 
 private:
     ServerApp();
@@ -18,12 +25,15 @@ private:
 
     void initializeSocket();
     void acceptLoop();
-    static void* handleClientThread(void* arg);
-    void startHttpServer();
+    void handleNewConnection(int connfd);
 
     int serverSocket;
     int port;
     struct sockaddr_in serverAddr;
+    
+    EventLoop eventLoop;
+    ThreadPool threadPool;
 };
+
 
 #endif // SERVERAPP_H
