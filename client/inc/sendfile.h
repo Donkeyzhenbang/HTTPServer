@@ -1,11 +1,14 @@
 #ifndef __SENDFILE_H_
 #define __SENDFILE_H_
 #include "utils.h"
+#include "protocol_handler.h"
 
-int SendProtocolB342(int socket);
-int SendProtocolB351(int socket, u_int8 channelNo, u_int16 packetLen);
-int SendProtocolB37(int socket, unsigned char * pBuffer, int Length, u_int8 channelNo);
-int SendPhotoData(int SocketFd,unsigned char* pBuffer, int Length, int channelNo);
+// int SendProtocolB342(int socket); // In base
+// int SendProtocolB351... // In base
+// int SendProtocolB37... // In base
+
+// int SendPhotoData(int SocketFd,unsigned char* pBuffer, int Length, int channelNo); // Moved to Protocol Handler
 void SendImageAnalysis(int sockfd);
 
 #endif // !1
+

@@ -11,6 +11,7 @@ set(SOURCES
     src/utils.cpp
     src/connection.cpp
     src/heartbeat.cpp
+    src/protocol_handler.cpp
 )
 
 # Header files (optional, for IDE support)
@@ -18,6 +19,8 @@ set(HEADERS
     inc/utils.h
     inc/connection.h
     inc/protocol.h
+    inc/protocol_handler.h
+
     inc/heartbeat.h
 )
 

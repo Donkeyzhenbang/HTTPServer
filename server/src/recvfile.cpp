@@ -35,7 +35,6 @@ static unsigned char buffer[1024] = {};
 // Moved to base/inc/protocol.h
 
 
-static int SampleHander(unsigned char* pBuffer, int Length, int fd);
 static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd);
 
 
@@ -54,7 +53,7 @@ struct HandlerFun{
  * 
  */
 struct HandlerFun Handlers [] = {
-    {.frameType = 0x07, .packetType = 0xEE, SampleHander},  //ProtocolB341的处理函数 这里后面需要修改：接收B342协议进行解析
+    {.frameType = 0x07, .packetType = 0xEE, NULL},  //ProtocolB341的处理函数
     {.frameType = 0x06, .packetType = 0xEF, NULL},
     {.frameType = 0x05, .packetType = 0xEF, RecvFileHandler} //这里开始处理接收图片
 };
@@ -173,123 +172,10 @@ void StartReadThread(std::shared_ptr<ConnectionContext> pContext)
  * @param pIsConnectionAlive 指向连接是否存活的标志
  * @return int 返回0代表正常，-1代表连接断开，-2代表接收超时
  */
-int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive)
-{
-    enum Rx_Status {Rx_Sync_1,Rx_Sync_2,Rx_Length_1,Rx_Length_2,Rx_Data,Rx_End};
-    enum Rx_Status rx_status = Rx_Sync_1;
-    unsigned short DataSize;//应接收的数据字节
-    unsigned short RxDataNum = 0;//已接收的数据字节
-    bool packetBufferStatus = false;//
-    
-    // 分离两个计数器
-    int packet_timeout_cnt = 0;       // 接收包过程中的超时计数（严格）
-    
-    while(!packetBufferStatus){
-        
-        // 1. 检查TCP物理连接是否已由读线程标记为断开
-        if(pIsConnectionAlive != NULL && pIsConnectionAlive->load() == false) {
-            printf("检测到读线程已断开连接，退出解析\n");
-            return -1;
-        }
-
-        int size = pQueue->size();
-        
-        // 2. 队列为空时的处理逻辑
-        if(size == 0) {
-            struct timespec req = {0, 100000000L}; // 100 毫秒
-            nanosleep(&req, (struct timespec *)NULL);
-
-            // --- 核心修改逻辑开始 ---
-            if (rx_status == Rx_Sync_1) {
-                // Case A: 处于【空闲状态】 (还在等包头第一个字节)
-                // 允许无限等待，或者依赖 TCP Keepalive。
-                packet_timeout_cnt = 0;  // 重置超时计数器
-                continue;
-            }
-            else {
-                // Case B: 处于【接收中状态】 (已经收到了 0xA5，包收到一半卡住了)
-                packet_timeout_cnt++;
-                
-                // 100ms * 30 = 3秒。如果3秒内没把剩下的包传完，认为坏包或客户端挂掉
-                if (packet_timeout_cnt >= 30) {
-                    printf("接收报文超时中断 (状态机卡在状态: %d)\n", rx_status);
-                    return -1; // 报文传输中断，断开连接
-                }
-            }
-            // --- 核心修改逻辑结束 ---
-            continue;
-        }
-
-        // 3. 队列有数据，开始处理
-        // 只要读到了数据，就重置由于卡顿产生的超时计数
-        packet_timeout_cnt = 0;
-
-        // 处理队列中的数据
-        for(int i=0;i<size;i++) {
-            unsigned char rx_temp = pQueue->front();
-            pQueue->pop();
-            switch(rx_status){
-                case Rx_Sync_1://接收包头
-                    rx_status = rx_temp == 0xA5 ? Rx_Sync_2:Rx_Sync_1;
-                    pPacket->packetBuffer[0] = rx_temp;
-                    break;
-                case Rx_Sync_2:
-                    rx_status = rx_temp == 0x5A ? Rx_Length_1:Rx_Sync_1;
-                    pPacket->packetBuffer[1] = rx_temp;
-                    break;
-                case Rx_Length_1://收到
-                    DataSize = rx_temp;
-                    rx_status = Rx_Length_2;
-                    pPacket->packetBuffer[2] = rx_temp;
-                    break;
-                case Rx_Length_2:
-                    DataSize += rx_temp*256 + 27;
-                    pPacket->packetLength =  DataSize;
-                    DataSize -= 5;
-                    rx_status = Rx_Data;
-                    pPacket->packetBuffer[3] = rx_temp;
-                    RxDataNum = 0;
-                    break;
-                case Rx_Data:
-                    ++ RxDataNum;
-                    pPacket->packetBuffer[3+RxDataNum] = rx_temp;
-                    rx_status =  RxDataNum == DataSize?Rx_End:Rx_Data;
-                    break;
-                case Rx_End:
-                    pPacket->packetBuffer[3+RxDataNum+1] = rx_temp;
-                    if( rx_temp != 0x96 ) {
-                        printf("包尾校验错误: %02X\n", rx_temp);
-                        rx_status = Rx_Sync_1;
-                        // 校验失败，丢弃当前包，继续接收下一个包
-                        i = size;
-                        continue;
-                    }else{
-                        packetBufferStatus = true;
-                    }
-                    rx_status = Rx_Sync_1;
-                    i = size;
-                    break;
-            }
-        }
-        
-        if(packetBufferStatus) {
-            int ret = CheckFrameFull(pPacket->packetBuffer,pPacket->packetLength);
-            if(-1 == ret) {
-                printf("整体帧校验错误\n");
-                return -2;
-            }
-            return 0;
-        }
-    }
-    return 0;
+int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive) {
+    return run_protocol_resolver(sockfd, pPacket, pQueue, pIsConnectionAlive);
 }
-/**
- * @brief 
- * 
- * @param pBuffer 
- * @param Length 
- * @return int 
- */
+
 int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
 {
     u_int8 frameType,packetType;
@@ -307,21 +193,6 @@ int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
     //没找到，处理
     printf("未处理协议 frameType = 0x%x, packetType = 0x%x\n",frameType,packetType);
     return -1;
-}
-/**
- * @brief 样例处理程序 
- * 
- * @param pBuffer 
- * @param Length 
- * @param fd 
- * @return int 
- */
-static int SampleHander(unsigned char* pBuffer, int Length, int fd)
-{
-    u_int8 frameType,packetType;
-    getFramePacketType(pBuffer, &frameType, &packetType);
-    printf("解析出 frameType = 0x%x, packetType = 0x%x\n",frameType,packetType);
-    return 0;    
 }
 
 /****************************************************************************/
@@ -440,7 +311,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
             }
             //从包中解析
             getFramePacketType(pPacket->packetBuffer, &frameType, &packetType);
-            // printf("frameType=0x%x, packetType=0x%x\n",frameType,packetType);
+            
             index ++;
             // printf("index = %d\n",index);
             //如果为05F0，则往图像缓冲区里写东西，下次循环再继续

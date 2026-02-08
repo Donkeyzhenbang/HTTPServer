@@ -102,15 +102,15 @@ int SocketConnect(int sockfd, const char* addr, uint16_t port)
     return 0;
 }
 
-int CheckFrameFull(unsigned char* pBuffer, int Length)
-{
-    // Implementation needed. Using a simple check assuming sync head
-    if (Length < 4) return 0;
-    // Assuming sync is 2 bytes and length is 2 bytes
-    // Adapt as per existing logic in old utils.cpp or protocols
-    // If not in utils.cpp, check where it came from.
-    // It was in utils.h in client.
-    return 1; // Placeholder
+int CheckFrameFull(unsigned char* packetBuffer, int packetLength) {
+    if (packetLength < 7) return -1;
+    u_int16_t receivedCRC = (packetBuffer[packetLength-3] | (packetBuffer[packetLength-2] << 8));
+    u_int16_t calculatedCRC = GetCheckCRC16(packetBuffer + 2, packetLength - 5);
+    if (receivedCRC != calculatedCRC) {
+        printf("CRC Check Failed: Len=%d, Recv=%04X, Calc=%04X\n", packetLength, receivedCRC, calculatedCRC);
+        return -1;
+    }
+    return 0;
 }
 
 int getFramePacketType(unsigned char* pBuffer, u_int8 *pFrameType, u_int8 *pPacketType)

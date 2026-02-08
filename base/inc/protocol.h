@@ -81,6 +81,37 @@ struct __attribute__((packed)) ProtocolB341{
     u_int8_t End;
 };
 
+struct __attribute__((packed)) ProtocolB37{
+    u_int16_t sync;        //报文头：5AA5H
+    u_int16_t packetLength;//报文长度
+
+    char cmdId[17];  //CMD_ID,17位编码
+    u_int8_t frameType;    //帧类型，05H（远程图像数据报）
+    u_int8_t packetType;   //报文类型，F1H（远程图像数据上送结束标记报）
+    u_int8_t frameNo;      //帧序列号，80H（主动上传最高位为1）
+    u_int8_t channelNo;    //通道号，1或2
+    u_int32_t timeStamp;   //本图像拍摄时间
+    char MD5[32];    //文件MD5码
+    char reserve[8]; //前1字节表示文件类型：0 图片，1 视频。后7字节备用
+
+    u_int16_t CRC16;       //CRC16校验
+    u_int8_t End;          //报文尾
+};
+
+struct __attribute__((packed)) ProtocolB342{
+    u_int16_t sync;
+    u_int16_t packetLength;
+
+    char cmdId[17];
+    u_int8_t frameType;
+    u_int8_t packetType;
+    u_int8_t frameNo;
+    u_int8_t commandStatus;
+
+    u_int16_t CRC16;
+    u_int8_t End;
+};
+
 struct __attribute__((packed)) ProtocolB38{
     u_int16_t sync;
     u_int16_t packetLength;
@@ -96,5 +127,36 @@ struct __attribute__((packed)) ProtocolB38{
     u_int16_t CRC16;
     u_int8_t End;
 };
+
+struct __attribute__((packed)) ProtocolAlarmInfo{
+    u_int8_t alarmType;
+    u_int8_t alarmCofidence;
+    u_int8_t alarmAreaBeginX;
+    u_int8_t alarmAreaBeginY;
+    u_int8_t alarmAreaEndX;
+    u_int8_t alarmAreaEndY;
+    u_int16_t distanceOfChan;
+    u_int16_t distanceOfWire;
+};
+
+struct __attribute__((packed)) ProtocolB313Header{
+    u_int16_t sync;
+    u_int16_t packetLength;
+    char cmdId[17];
+    u_int8_t frameType;
+    u_int8_t packetType;
+    u_int8_t frameNo;
+    u_int8_t channelNo;
+    u_int8_t prePosition;
+    u_int32_t timeStamp;
+    u_int8_t alarmNum;
+};
+// Note: B313 is variable length. Followed by alarmNum * ProtocolAlarmInfo, then CRC16, End.
+
+// Generic buffer packet structure used for parsing (moved from recvfile.h)
+typedef struct Packet_t {
+    int packetLength;
+    unsigned char packetBuffer[2048];
+} Packet_t;
 
 #endif

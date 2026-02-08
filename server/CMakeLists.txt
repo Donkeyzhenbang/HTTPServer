@@ -17,9 +17,9 @@ set(SOURCES
     src/http_server.cpp
     # src/heartbeat.cpp # Moved to base
     src/modelupgrade.cpp
-    src/sendfile.cpp
     src/recvfile.cpp
 )
+
 
 add_subdirectory(../base base_build)
 
