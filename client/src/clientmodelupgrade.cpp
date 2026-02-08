@@ -48,7 +48,7 @@ static MyQueue* get_connection_queue(int fd) {
     return nullptr;
 }
 
-int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd, int& model_script_channel)
+int ClientFrameResolver(unsigned char* pBuffer, int Length ,int sockfd, int& model_script_channel)
 {
     u_int8 frameType, packetType;
     getFramePacketType(pBuffer, &frameType, &packetType);
@@ -216,7 +216,7 @@ void recv_model(int connfd, int& model_script_channel) {
             pthread_exit(NULL);
         }
 
-        sFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd, model_script_channel);
+        ClientFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd, model_script_channel);
         delete pPacket;
     }
     remove_connection_context(connfd);

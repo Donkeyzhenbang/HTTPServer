@@ -123,7 +123,7 @@ int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic
     return run_protocol_resolver(sockfd, pPacket, pQueue, pIsConnectionAlive);
 }
 
-int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
+int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
 {
     u_int8 frameType,packetType;
     getFramePacketType(pBuffer, &frameType, &packetType);
@@ -390,7 +390,7 @@ void *HandleClient(void *arg) {
             pthread_exit(NULL);
         }
 
-        sFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd);
+        ServerFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd);
         delete pPacket;
 
         if (context->is_processing_done)

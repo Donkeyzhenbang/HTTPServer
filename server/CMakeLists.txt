@@ -4,6 +4,11 @@ project(httpserver)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Add base library if not already added
+if(NOT TARGET base)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../base ${CMAKE_BINARY_DIR}/base_build)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/../base/inc
@@ -11,22 +16,26 @@ include_directories(
 
 find_package(OpenSSL REQUIRED)
 
-set(SOURCES
-    src/main.cpp
+set(SERVER_CORE_SOURCES
     src/ServerApp.cpp
     src/http_server.cpp
-    # src/heartbeat.cpp # Moved to base
     src/modelupgrade.cpp
     src/recvfile.cpp
 )
 
+add_library(server_core STATIC ${SERVER_CORE_SOURCES})
+target_link_libraries(server_core
+    PRIVATE 
+        base
+        pthread
+        OpenSSL::Crypto
+)
 
-add_subdirectory(../base base_build)
-
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} src/main.cpp)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE 
+        server_core
         base
         pthread
         OpenSSL::Crypto

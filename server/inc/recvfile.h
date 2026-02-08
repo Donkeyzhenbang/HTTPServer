@@ -9,7 +9,7 @@
 #include "protocol_handler.h"
 
 int recv_and_resolve(int sockfd, Packet_t* pPacket, MyQueue* pQueue, std::atomic<bool>* pIsConnectionAlive);
-int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd);
+int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd);
 void StartReadThread(int* pSocketId,pthread_t* tId);
 extern "C" void *HandleClient(void *arg);
 void *HandleMCU(void *arg);

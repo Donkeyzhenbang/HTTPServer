@@ -11,3 +11,4 @@ ImageSend
 client/build/*
 server/build/*
 base/build/*
+tests/build/*

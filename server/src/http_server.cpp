@@ -220,6 +220,10 @@ void start_http_server() {
     std::string upload_dir = get_upload_dir();
     std::string engines_dir = get_engines_dir();
 
+    std::cout << "[HTTP] Frontend Dir: " << frontend_dir << std::endl;
+    std::cout << "[HTTP] Upload Dir: " << upload_dir << std::endl;
+    std::cout << "[HTTP] Engines Dir: " << engines_dir << std::endl;
+
     //! 静态资源挂载 静态资源挂载
     svr.set_mount_point("/", frontend_dir);
     svr.set_mount_point("/uploads", upload_dir);
