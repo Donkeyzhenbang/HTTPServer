@@ -135,7 +135,7 @@ struct HandlerFun{
     int (*func)(unsigned char* pBuffer, int Length, int fd);
 };
 
-struct HandlerFun Handlers [] = {
+static struct HandlerFun Handlers [] = {
     {.frameType = 0x07, .packetType = 0xEE, ManualGetPhotoHander}, 
     {.frameType = 0x06, .packetType = 0xEF, NULL}, 
     {.frameType = 0x07, .packetType = 0xF2, NULL} 

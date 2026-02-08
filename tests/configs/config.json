@@ -1,0 +1,14 @@
+{
+  "network": {
+    "default_ip": "127.0.0.1",
+    "default_port": 9988
+  },
+  "photos": {
+      "paths": [
+        "../resource/photos/test_img.jpg",
+        "../resource/photos/test_img.jpg",
+        "../resource/photos/test_img.jpg",
+        "../resource/photos/test_img.jpg"
+      ]
+  }
+}

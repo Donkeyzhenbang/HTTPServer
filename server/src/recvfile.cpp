@@ -40,7 +40,7 @@ struct HandlerFun{
 };
 
 
-struct HandlerFun Handlers [] = {
+static struct HandlerFun Handlers [] = {
     {.frameType = 0x07, .packetType = 0xEE, NULL},  //ProtocolB341的处理函数
     {.frameType = 0x06, .packetType = 0xEF, NULL},
     {.frameType = 0x05, .packetType = 0xEF, RecvFileHandler} //这里开始处理接收图片
