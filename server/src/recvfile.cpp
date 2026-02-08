@@ -28,84 +28,31 @@
 #include "utils.h"
 using namespace std;
 static unsigned char buffer[1024] = {};
-/**
- * @brief 远程图像数据报
- * 
- */
-// Moved to base/inc/protocol.h
 
 
 static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd);
 
 
-/**
- * @brief 回调函数结构体
- * 
- */
 struct HandlerFun{
     u_int8 frameType;
     u_int8 packetType;
     int (*func)(unsigned char* pBuffer, int Length, int fd);
 };
 
-/**
- * @brief 回调函数注册表
- * 
- */
+
 struct HandlerFun Handlers [] = {
     {.frameType = 0x07, .packetType = 0xEE, NULL},  //ProtocolB341的处理函数
     {.frameType = 0x06, .packetType = 0xEF, NULL},
     {.frameType = 0x05, .packetType = 0xEF, RecvFileHandler} //这里开始处理接收图片
 };
 
-/**
- * @brief 获取连接的队列
- * 
- * @param fd 连接的文件描述符
- * @return MyQueue* 队列指针，如果连接不存在返回nullptr
- */
+
 static MyQueue* get_connection_queue(int fd) {
     ConnectionContext* ctx = find_connection_by_fd(fd);
     if (ctx) {
         return ctx->queue.get();
     }
     return nullptr;
-}
-
-// Removed static create_connection_context - using base library version
-// Removed static remove_connection_context - using base library version
-
-
-
-/**
- * @brief 等待B342协议
- * 
- * @param fd 
- * @return int 
- */
-int waitForB342(int fd) 
-{
-    int len = read(fd,buffer,1024);
-    if(len < 0) {
-        //出错
-        printf("B342 Read出错\n");
-        return -1;
-    }
-    int ret;
-    if((ret = CheckFrameFull(buffer, len))<0) {
-        printf("[Func] waitForB342 帧解析出错，不完整，错误码%d\n",ret);
-        deBugFrame(buffer,len);
-        return -1;
-    }
-    u_int8 frameType,packetType;
-    getFramePacketType(buffer, &frameType, &packetType);
-    if(frameType == 0x05 && packetType == 0xEE) {
-        printf("[Func] waitForB342 接收到B342\n");
-        deBugFrame(buffer,len);
-        return 0;
-    }
-    printf("[Func] waitForB342 收到其他包，没有收到B342协议\n");
-    return -2;
 }
 
 
@@ -195,45 +142,6 @@ int sFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
     return -1;
 }
 
-/****************************************************************************/
-
-// 获取当前可执行文件所在目录，例如： /home/jym/.../bin
-static std::string get_exe_dir() {
-    char buf[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (len == -1) return "."; // fallback
-    buf[len] = '\0';
-    std::string full = buf;
-    size_t pos = full.find_last_of('/');
-    if (pos == std::string::npos) return ".";
-    return full.substr(0, pos);
-}
-
-// 递归确保目录存在（比较简单、可靠）
-static bool ensure_dir_exists(const std::string &dir) {
-    struct stat st;
-    if (stat(dir.c_str(), &st) == 0) {
-        return S_ISDIR(st.st_mode);
-    }
-    // create each component
-    std::string cur;
-    for (size_t i = 0; i < dir.size(); ++i) {
-        cur.push_back(dir[i]);
-        if (dir[i] == '/' || i + 1 == dir.size()) {
-            std::string sub = cur;
-            if (sub.size() > 1 && sub.back() == '/') sub.pop_back();
-            if (sub.empty()) continue;
-            if (stat(sub.c_str(), &st) == 0) continue;
-            if (mkdir(sub.c_str(), 0755) != 0 && errno != EEXIST) {
-                std::cerr << "[ensure_dir_exists] mkdir failed for " << sub << " errno=" << errno << "\n";
-                return false;
-            }
-        }
-    }
-    return stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-}
-
-/****************************************************************************/
 
 
 /**
@@ -375,9 +283,8 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd)
     /****************************************************************************/
     // SaveFile(filename, pPhotoBuffer, PhotoFileSize);//这里欠缺一个文件大小
     // mv_sleep(250);//延时保证图片可以顺利读取
-    // 构造保存目录：<exe_dir>/web/uploads
-    std::string exe_dir = get_exe_dir(); // 可执行文件所在目录
-    std::string upload_dir = exe_dir + "/web/uploads";
+    // 构造保存目录
+    std::string upload_dir = get_upload_dir();
 
     // 确保目录存在
     if (!ensure_dir_exists(upload_dir)) {

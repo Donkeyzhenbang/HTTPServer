@@ -224,30 +224,3 @@ bool ensure_dir_exists(const std::string &dir) {
 }
 
 /****************************************************************************/
-
-std::string get_server_root_dir() {
-    std::string exe = get_exe_dir();
-    // Assuming structure: /.../bin/main -> root is /...
-    // Check if ends with /bin
-    if (exe.size() >= 4 && exe.substr(exe.size() - 4) == "/bin") {
-        return exe.substr(0, exe.size() - 4);
-    }
-    // Fallback if not running from bin
-    return exe + "/..";
-}
-
-std::string get_frontend_dir() {
-    return get_server_root_dir() + "/frontend";
-}
-
-std::string get_resource_dir() {
-    return get_server_root_dir() + "/resource";
-}
-
-std::string get_upload_dir() {
-    return get_resource_dir() + "/uploads";
-}
-
-std::string get_engines_dir() {
-    return get_resource_dir() + "/engines";
-}

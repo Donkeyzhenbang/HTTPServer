@@ -46,6 +46,41 @@ int getFramePacketType(unsigned char* pBuffer, u_int8 *pFrameType, u_int8 *pPack
 char* ComputeBufferMd5(unsigned char* pBuffer, int Length);
 
 /**
+ * @brief Get the directory of the current executable
+ */
+std::string get_exe_dir();
+
+/**
+ * @brief Ensure directory exists (recursive mkdir)
+ */
+bool ensure_dir_exists(const std::string &dir);
+
+/**
+ * @brief Get server root directory (assuming exe is in bin/)
+ */
+std::string get_server_root_dir();
+
+/**
+ * @brief Get frontend directory path
+ */
+std::string get_frontend_dir();
+
+/**
+ * @brief Get resource directory path
+ */
+std::string get_resource_dir();
+
+/**
+ * @brief Get uploads directory path
+ */
+std::string get_upload_dir();
+
+/**
+ * @brief Get engines directory path
+ */
+std::string get_engines_dir();
+
+/**
  * @brief Debug Helper
  */
 void deBugFrame(unsigned char* pBuffer, int Length);
@@ -70,4 +105,4 @@ void get_local_time();
  */
 int SaveFile(const char *filename, unsigned char* pBuffer, size_t length);
 
-#endif
+#endif // __BASE_UTILS_H_

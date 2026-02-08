@@ -55,59 +55,22 @@ static std::vector<std::string> list_uploaded_files(const std::string &dir) {
 }
 
 // 新增：获取可执行文件所在目录
-static std::string get_exe_dir() {
-    char buf[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (len == -1) {
-        return ".";
-    }
-    buf[len] = '\0';
-    std::string full = buf;
-    auto pos = full.find_last_of('/');
-    if (pos == std::string::npos) return ".";
-    return full.substr(0, pos);
-}
+// Func moved to base/src/utils.cpp
 
 // 新增：确保目录存在（递归创建）
-static bool ensure_dir_exists(const std::string &dir) {
-    struct stat st;
-    if (stat(dir.c_str(), &st) == 0) {
-        if (S_ISDIR(st.st_mode)) return true;
-        return false;
-    }
-    
-    std::string cur;
-    for (size_t i = 0; i < dir.size(); ++i) {
-        cur.push_back(dir[i]);
-        if (dir[i] == '/' || i + 1 == dir.size()) {
-            if (cur.empty()) continue;
-            std::string tocreate = cur;
-            if (tocreate.size() > 1 && tocreate.back() == '/') tocreate.pop_back();
-            if (tocreate.empty()) continue;
-            if (stat(tocreate.c_str(), &st) == 0) continue;
-            if (mkdir(tocreate.c_str(), 0755) != 0 && errno != EEXIST) {
-                std::cerr << "[HTTP] mkdir failed for " << tocreate << " errno=" << errno << "\n";
-                return false;
-            }
-        }
-    }
-    return stat(dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-}
+// Func moved to base/src/utils.cpp
 
 // 全局（静态）upload dir computed once
-static std::string g_upload_dir;
+// static std::string g_upload_dir; // Removed, using get_upload_dir() from base
 
 // 修改 save_upload_to_web：添加通道参数，在文件名中标记通道
 static std::string save_upload_to_web(const std::string &filename,
                                       const std::string &content,
                                       int channel = 1) {
-    if (g_upload_dir.empty()) {
-        std::string exe_dir = get_exe_dir();
-        g_upload_dir = exe_dir + "/web/uploads";
-    }
+    std::string upload_dir = get_upload_dir();
 
-    if (!ensure_dir_exists(g_upload_dir)) {
-        std::cerr << "[HTTP] ensure_dir_exists failed: " << g_upload_dir << std::endl;
+    if (!ensure_dir_exists(upload_dir)) {
+        std::cerr << "[HTTP] ensure_dir_exists failed: " << upload_dir << std::endl;
         return "";
     }
 
@@ -122,7 +85,7 @@ static std::string save_upload_to_web(const std::string &filename,
         << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_" << filename;
     
     std::string saved = oss.str();
-    std::string path = g_upload_dir + "/" + saved;
+    std::string path = upload_dir + "/" + saved;
 
     std::cerr << "[HTTP] saving upload to: " << path << " (size=" << content.size() 
               << ", channel=" << channel << ")\n";
@@ -253,14 +216,21 @@ static std::string get_connections_html() {
 void start_http_server() {
     httplib::Server svr;
 
+    std::string frontend_dir = get_frontend_dir();
+    std::string upload_dir = get_upload_dir();
+    std::string engines_dir = get_engines_dir();
+
     //! 静态资源挂载 静态资源挂载
-    svr.set_mount_point("/", "./web");
+    svr.set_mount_point("/", frontend_dir);
+    svr.set_mount_point("/uploads", upload_dir);
+    svr.set_mount_point("/engines", engines_dir);
+
     svr.set_payload_max_length(500 * 1024 * 1024); // 500MB
 
     // 主页路由，显示连接信息
-    svr.Get("/", [](const httplib::Request &req, httplib::Response &res) {
+    svr.Get("/", [frontend_dir](const httplib::Request &req, httplib::Response &res) {
         // 读取原始的 index.html
-        std::ifstream ifs("./web/index.html");
+        std::ifstream ifs(frontend_dir + "/index.html");
         if (!ifs) {
             res.status = 500;
             res.set_content("找不到 index.html", "text/plain");
@@ -323,11 +293,8 @@ void start_http_server() {
 
     // GET /api/images - 添加通道过滤支持
     svr.Get("/api/images", [](const httplib::Request &req, httplib::Response &res) {
-        if (g_upload_dir.empty()) {
-            std::string exe_dir = get_exe_dir();
-            g_upload_dir = exe_dir + "/web/uploads";
-        }
-        auto list = list_uploaded_files(g_upload_dir);
+        std::string upload_dir = get_upload_dir();
+        auto list = list_uploaded_files(upload_dir);
         
         // 检查是否有通道过滤参数
         if (req.has_param("channel")) {
@@ -709,7 +676,7 @@ void start_http_server() {
             }
             
             // 保存模型文件到临时位置
-            std::string temp_model_path = "web/engines/model_upgrade_" + device + "_" + 
+            std::string temp_model_path = get_engines_dir() + "/model_upgrade_" + device + "_" + 
                                         std::to_string(std::time(nullptr)) + ".engine";
             
             try {
@@ -821,12 +788,12 @@ void start_http_server() {
         }
         
         // 使用默认测试图片路径
-        std::string test_image_path = "web/uploads/test_image.jpg";
+        std::string test_image_path = get_upload_dir() + "/test_image.jpg";
         
         // 检查文件是否存在
         struct stat buffer;
         if (stat(test_image_path.c_str(), &buffer) != 0) {
-            test_image_path = "web/uploads/default.jpg";
+            test_image_path = get_upload_dir() + "/default.jpg";
             
             if (stat(test_image_path.c_str(), &buffer) != 0) {
                 res.set_content(R"({"ok":false,"error":"test image not found"})", "application/json");
