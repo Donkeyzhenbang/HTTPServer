@@ -236,9 +236,29 @@ static int FindSyncHeader(const std::vector<uint8_t>& buffer, int start) {
     return -1;
 }
 
+// Helper to Cleanly Close Connection
+static void CloseConnection(int fd) {
+    // Check if valid
+    if (find_connection_by_fd(fd) == nullptr) return; 
+
+    printf("[CloseConnection] Client Disconnected. Cleaning fd=%d\n", fd);
+    
+    // 1. Remove from Reactor to stop events
+    ServerApp::getInstance().getEventLoop().RemoveSocket(fd);
+    
+    // 2. Close OS Socket
+    close(fd);
+    
+    // 3. Remove Application Context (updates global map/device list)
+    remove_connection_context(fd);
+}
+
 void OnClientRead(int fd) {
-    ConnectionContext* ctx = find_connection_by_fd(fd);
-    if (!ctx) return;
+    // Use shared_ptr to ensure safety
+    auto ctxPtr = get_connection_shared_ptr(fd);
+    if (!ctxPtr) return;
+    
+    ConnectionContext* ctx = ctxPtr.get();
 
     {
         std::lock_guard<std::mutex> lock(ctx->bufferMutex);
@@ -249,22 +269,19 @@ void OnClientRead(int fd) {
             if (n < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) break;
                 if (errno != EINTR) {
-                    // Error or Close
+                    // unexpected error
+                    perror("Read Error");
                     ctx->is_connection_alive = false;
-                    // Trigger close logic?
-                    // ServerApp will detect EPOLLRDHUP usually, but here handle read error
-                    // Close fd?
-                    // close(fd); remove_... rely on ServerApp or doing it here
-                    // Actually, let's keep it alive until Process detects it or ServerApp specific RDHUP handler.
-                    // But if read fails, we should stop.
-                    // Let's assume EPOLLRDHUP handles clean close, or we can flag it.
+                    CloseConnection(fd);
+                    return;
                 }
                 break;
             }
             if (n == 0) {
                 // EOF
                 ctx->is_connection_alive = false;
-                break;
+                CloseConnection(fd);
+                return;
             }
             ctx->inputBuffer.insert(ctx->inputBuffer.end(), buf, buf + n);
         }
@@ -281,8 +298,11 @@ void OnClientRead(int fd) {
 }
 
 void ProcessConnection(int fd) {
-    ConnectionContext* ctx = find_connection_by_fd(fd);
-    if (!ctx) return;
+    // Hold reference safely
+    auto ctxPtr = get_connection_shared_ptr(fd);
+    if (!ctxPtr) return;
+    
+    ConnectionContext* ctx = ctxPtr.get();
 
     while (ctx->is_connection_alive) {
         std::vector<uint8_t> packet;
