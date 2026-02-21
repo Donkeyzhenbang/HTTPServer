@@ -1,6 +1,7 @@
 *.o
 *.png
 *.jpg
+*.log
 .vscode/
 .env
 AliImageSend
