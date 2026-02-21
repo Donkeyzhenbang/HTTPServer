@@ -110,81 +110,128 @@ POST /api/model_upgrade
 - makefile修改为cmake
 
 
-## 等待心跳包协议
+## 
+- 服务器架构设计 这里先是AddSocket注册回调函数，acceptLoop接入服务器之后会
 ```cpp
-int waitForHeartBeat(int fd) 
-{
-    int len = read(fd,buffer,1024);
-    if(len < 0) {
-        //出错
-        printf("Heart Socket Read出错\n");
-        exit(EXIT_FAILURE);
-        // return -1;
+    eventLoop.AddSocket(serverSocket, EPOLLIN | EPOLLET, [this](int fd){
+        this->acceptLoop();
+    });
+
+```
+- acceptLoop对于接入服务器之后会调用另一个回调函数handleNewConnection
+```cpp
+void ServerApp::acceptLoop() {
+    struct sockaddr_in client_addr = {0};
+    socklen_t addrlen = sizeof(client_addr);
+    char ip_str[INET_ADDRSTRLEN] = {0};
+
+    while (true) {
+        int connfd = accept(serverSocket, (struct sockaddr*)&client_addr, &addrlen);
+        if (connfd < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break; 
+            }
+            perror("accept error");
+            break;
+        }
+
+        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
+        std::cout << "客户端连接: IP地址: " << ip_str 
+                  << "; 端口号: " << ntohs(client_addr.sin_port) 
+                  << "; fd=" << connfd << std::endl;
+
+        handleNewConnection(connfd);
     }
-    int ret;
-    if((ret = CheckFrameFull(buffer, len))<0) {
-        printf("帧解析出错，不完整，错误码%d\n",ret);
-        deBugFrame(buffer,len);
-        exit(EXIT_FAILURE);
-        // return -1;
-    }
-    u_int8 frameType,packetType;
-    getFramePacketType(buffer, &frameType, &packetType);
-    if(frameType == 0x09 && packetType == 0xE6) {
-        printf("接收到心跳协议\n");
-        deBugFrame(buffer,len);
-        return 0;
-    }
-    printf("收到其他包，没有收到心跳协议\n");
-    return -2;
+}
+```
+- handleNewConnection这里AddSoekct执行的就是业务逻辑OnClientRead 创建连接上下文 读入到client
+```cpp
+void ServerApp::handleNewConnection(int connfd) {
+    // Set Non-Blocking
+    int flags = fcntl(connfd, F_GETFL, 0);
+    fcntl(connfd, F_SETFL, flags | O_NONBLOCK);
+
+    // Initialise Context
+    create_connection_context(connfd);
+
+    // Add to Reactor
+    eventLoop.AddSocket(connfd, EPOLLIN | EPOLLET | EPOLLRDHUP, [](int fd){
+        OnClientRead(fd);
+    });
+    
+    // Send immediate heartbeat response if needed or wait for client?
+    // Old code waited for HeartbeatFrame.
+    // We just let `OnClientRead` handle the incoming packet.
 }
 ```
 
-## 客户端B341协议修正
+- 读入到对应上下文之后，会推送到ThreadPool中进行处理
 ```cpp
-int waitForB341(int fd) 
-{
-    int len = read(fd, buffer, 1024);
-    if(len < 0) {
-        printf("B341 Socket Read出错\n");
-        return -1;
-    }
+void OnClientRead(int fd) {
+    // Use shared_ptr to ensure safety
+    auto ctxPtr = get_connection_shared_ptr(fd);
+    if (!ctxPtr) return;
     
-    int ret;
-    if((ret = CheckFrameFull(buffer, len)) < 0) {
-        printf("帧解析出错，不完整，错误码%d\n", ret);
-        deBugFrame(buffer, len);
-        return -1;
-    }
-    
-    u_int8 frameType, packetType;
-    getFramePacketType(buffer, &frameType, &packetType);
-    
-    if(frameType == 0x07 && packetType == 0xEE) {
-        printf("接收到B341协议\n");
-        deBugFrame(buffer, len);
-        
-        // 提取通道号 - 根据B341报文格式
-        // 计算偏移量：
-        // Sync(2) + Packet_Length(2) + CMD_ID(17) + Frame_Type(1) + Packet_Type(1) + Frame_No(1) = 24字节
-        // Channel_No是第25个字节（从1开始计数），索引为24（从0开始）
-        
-        if(len >= 25) {  // 确保报文足够长
-            u_int8 channelNo = buffer[24];  // 第25个字节是通道号
-            printf("B341报文中的通道号: %d\n", channelNo);
-            
-            // 如果需要，这里可以保存通道号到全局变量或返回
-            // global_channel = channelNo;  // 假设有全局变量
-            
-            // 返回通道号作为成功（正整数）或0
-            return (int)channelNo;
-        } else {
-            printf("B341报文长度不足，无法提取通道号\n");
-            return -3;
+    ConnectionContext* ctx = ctxPtr.get();
+
+    {
+        std::lock_guard<std::mutex> lock(ctx->bufferMutex);
+        // Read directly into vector
+        char buf[4096];
+        while(true) {
+            int n = read(fd, buf, sizeof(buf));
+            if (n < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+                if (errno != EINTR) {
+                    // unexpected error
+                    perror("Read Error");
+                    ctx->is_connection_alive = false;
+                    CloseConnection(fd);
+                    return;
+                }
+                break;
+            }
+            if (n == 0) {
+                // EOF
+                ctx->is_connection_alive = false;
+                CloseConnection(fd);
+                return;
+            }
+            ctx->inputBuffer.insert(ctx->inputBuffer.end(), buf, buf + n);
         }
     }
     
-    printf("收到其他包，没有收到B341\n");
-    return -2;
+    // Trigger Processing Task if not already running
+    bool expected = false;
+    if (ctx->is_processing.compare_exchange_strong(expected, true)) {
+        // Enqueue task
+        ServerApp::getInstance().getThreadPool().enqueue([fd](){
+            ProcessConnection(fd);
+        });
+    }
 }
+
+```
+
+- ProcessConnection中会处理包长，然会根据交由ServerFrameResolver进行预先注册好的回调函数进行dispatch
+```cpp
+int ServerFrameResolver(unsigned char* pBuffer, int Length ,int sockfd)
+{
+    u_int8 frameType,packetType;
+    getFramePacketType(pBuffer, &frameType, &packetType);
+    //根据帧类型和包类型，调用不同的处理函数
+    //查表，然后处理吗？
+    for(int i=0;i<sizeof(Handlers)/sizeof(HandlerFun);i++) {
+        if(Handlers[i].frameType == frameType && Handlers[i].packetType == packetType) {   
+            if(Handlers[i].func!=NULL) {
+                Handlers[i].func(pBuffer,Length,sockfd);
+            }
+            return 0;
+        }
+    }
+    //没找到，处理
+    printf("未处理协议 frameType = 0x%x, packetType = 0x%x\n",frameType,packetType);
+    return -1;
+}
+
 ```

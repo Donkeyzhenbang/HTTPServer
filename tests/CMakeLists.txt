@@ -48,7 +48,24 @@ add_executable(run_protocol_tests
 target_include_directories(run_protocol_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../base/inc
 )
-target_link_libraries(run_protocol_tests PRIVATE base GTest::gtest_main pthread)
+target_link_libraries(run_protocol_tests
+    base
+    GTest::GTest
+    GTest::Main
+    pthread
+)
+
+# --- Performance Tests ---
+add_executable(perf_tcp_client
+    perf_tcp_client.cpp
+)
+target_include_directories(perf_tcp_client PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../base/inc
+)
+target_link_libraries(perf_tcp_client
+    base
+    pthread
+)
 
 # --- HTTP / Server Tests ---
 add_executable(run_server_tests

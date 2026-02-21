@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <chrono>
+#include <mutex>
 #include "../inc/heartbeat.h"
 #include "../inc/utils.h"
 
@@ -45,8 +46,38 @@ int SendHeartbeatRequest(int fd)
 
 int SendHeartbeatResponse(int fd)
 {
-    HeartbeatFrame frame;
-    InitHeartbeatFrame(frame, 0x0A, (uint16_t)sizeof(frame));
+    // 静态模板，初始化一次包含所有固定字段
+    static HeartbeatFrame templateFrame;
+    static bool initialized = false;
+    static std::mutex initMutex;
+
+    if (!initialized) {
+        std::lock_guard<std::mutex> lock(initMutex);
+        if (!initialized) {
+            memset(&templateFrame, 0, sizeof(templateFrame));
+            templateFrame.sync = 0x5AA5;
+            templateFrame.packetLength = sizeof(HeartbeatFrame);
+            memcpy(templateFrame.cmdId, CMD_ID, sizeof(templateFrame.cmdId));
+            templateFrame.frameType = 0x0A; // Response
+            templateFrame.packetType = 0xE6;
+            templateFrame.frameNo = 0;
+            templateFrame.End = 0x96;
+            initialized = true;
+        }
+    }
+
+    // 复制模板到栈上 (非常快，内联memcpy)
+    HeartbeatFrame frame = templateFrame;
+
+    // 仅更新动态字段：当前时间戳
+    // 使用 steady_clock 可能更快且足够用于心跳，这里保持 system_clock 以符合协议
+    auto now = std::chrono::system_clock::now();
+    frame.clocktimeStamp = (uint32_t)std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+
+    // 更新CRC (只计算一次)
+    // 优化：CRC 计算范围
+    frame.CRC16 = GetCheckCRC16((unsigned char *)(&frame.packetLength), sizeof(HeartbeatFrame) - 5);
+
     return write(fd, &frame, sizeof(frame));
 }
 

@@ -45,7 +45,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
 )
 
-target_compile_options(${PROJECT_NAME} PRIVATE -w)
+target_compile_options(${PROJECT_NAME} PRIVATE -w -O3 -march=native)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(${PROJECT_NAME} PRIVATE -g)
