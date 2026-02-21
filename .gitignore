@@ -2,6 +2,7 @@
 *.png
 *.jpg
 *.log
+*.pyc
 .vscode/
 .env
 AliImageSend
