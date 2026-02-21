@@ -1,163 +1,160 @@
+import sys
 import os
-import requests
-import dashscope
-from typing import Dict, Any, List
-from dotenv import load_dotenv
+import time
+import json
+import logging
+import random
 
-# 加载环境变量
-load_dotenv()
+# Ensure tools directory is in python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(current_dir, 'tools'))
 
-# 设置DashScope API密钥
-dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
-if not dashscope.api_key:
-    raise ValueError("请设置 DASHSCOPE_API_KEY 环境变量")
+try:
+    from device_tools import get_device_status, get_device_logs, perform_diagnostic
+    from system_tools import check_server_health, analyze_grid_health, detect_grid_anomalies
+except ImportError as e:
+    print(f"Error importing tools: {e}")
+    sys.exit(1)
 
-class DeviceTools:
-    """设备查询工具类 - 直接调用你的C++后端API"""
-    
-    def __init__(self, backend_url="http://127.0.0.1:8080"):
-        self.backend_url = backend_url
-    
-    def get_device_list(self) -> str:
-        """获取设备列表"""
-        try:
-            resp = requests.get(f"{self.backend_url}/api/devices", timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                devices = data.get("devices", [])
-                if devices:
-                    return f"当前在线设备({len(devices)}个): {', '.join(devices)}"
-                return "当前没有在线的设备。"
-            return "获取设备列表失败。"
-        except Exception as e:
-            return f"查询设备列表出错: {str(e)}"
-    
-    def get_connection_stats(self) -> str:
-        """获取连接统计"""
-        try:
-            resp = requests.get(f"{self.backend_url}/api/connections", timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                total = data.get("total_connections", 0)
-                registered = data.get("registered_devices", 0)
-                return f"连接统计: 总连接数={total}, 已注册设备={registered}"
-            return "获取连接统计失败。"
-        except Exception as e:
-            return f"查询连接统计出错: {str(e)}"
-
-class QwenAgent:
-    """基于Qwen的简化版Agent"""
-    
-    def __init__(self, tools: Dict[str, Any]):
-        self.tools = tools
-        self.conversation_history = []
+class PowerGridAgent:
+    def __init__(self):
+        # In a real app, these would be fetched from the API
+        self.devices = ["Device-A001", "Device-A002", "Device-B101", "Device-B105", "Device-C200"]
         
-    def get_tools_description(self) -> str:
-        """生成工具描述，用于提示词"""
-        descriptions = []
-        for name, tool in self.tools.items():
-            descriptions.append(f"- {name}: {tool['description']}")
-        return "\n".join(descriptions)
-    
-    def call_qwen_api(self, prompt: str) -> str:
-        """直接调用Qwen API"""
-        try:
-            response = dashscope.Generation.call(
-                model="qwen-turbo",
-                prompt=prompt,
-                max_tokens=1500,
-                temperature=0.1,
-                top_p=0.8,
-                result_format='message',
-            )
+        logging.basicConfig(
+            level=logging.INFO, 
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler("agent.log"),
+                logging.StreamHandler()
+            ]
+        )
+        self.logger = logging.getLogger("GridAgent")
+
+    def process_command(self, command_str):
+        """Process a natural language or structured command."""
+        cmd = command_str.strip().lower()
+        
+        if cmd in ['exit', 'quit']:
+            return "EXIT"
             
-            if response.status_code == 200:
-                return response.output.choices[0].message.content
+        elif cmd == 'help':
+            return self._get_help_text()
+            
+        elif cmd == 'list devices' or cmd == 'ls':
+            return f"Monitored Devices:\n" + "\n".join([f"- {d}" for d in self.devices])
+            
+        elif cmd.startswith('status'):
+            parts = cmd.split()
+            if len(parts) > 1:
+                dev_id = parts[1]
+                # Fuzzy match for convenience
+                target = next((d for d in self.devices if dev_id.lower() in d.lower()), dev_id)
+                return self._report_device_status(target)
             else:
-                return f"API调用失败: {response.code} - {response.message}"
-        except Exception as e:
-            return f"调用Qwen API时出错: {str(e)}"
-    
-    def process_query(self, user_query: str) -> str:
-        """处理用户查询的核心逻辑"""
-        # 1. 构建系统提示词
-        system_prompt = f"""你是一个设备管理助手，可以查询设备状态。
-可用的工具和信息：
-{self.get_tools_description()}
+                return "Usage: status <device_id>"
+                
+        elif cmd.startswith('logs'):
+            parts = cmd.split()
+            if len(parts) > 1:
+                dev_id = parts[1]
+                target = next((d for d in self.devices if dev_id.lower() in d.lower()), dev_id)
+                return self._report_device_logs(target)
+            else:
+                return "Usage: logs <device_id>"
+                
+        elif cmd.startswith('diag'):
+            parts = cmd.split()
+            if len(parts) > 1:
+                dev_id = parts[1]
+                target = next((d for d in self.devices if dev_id.lower() in d.lower()), dev_id)
+                return self._run_diagnostics(target)
+            else:
+                return "Usage: diag <device_id>"
+                
+        elif cmd == 'health' or cmd == 'grid status':
+            return self._analyze_full_grid()
+            
+        elif cmd == 'server' or cmd == 'system':
+            return self._check_server()
+            
+        elif 'foreign object' in cmd or 'anomaly' in cmd:
+             return self._scan_for_anomalies()
+             
+        else:
+            return f"Unknown command: '{cmd}'. Type 'help' for available commands."
 
-请根据用户问题选择合适工具获取信息，然后用中文清晰回答。
-如果问题超出范围，请礼貌告知。
+    def _get_help_text(self):
+        return """
+Available Commands:
+  list devices       - List all monitored devices
+  status <id>        - Check real-time status of a device
+  logs <id>          - Analyze recent logs for a device
+  diag <id>          - Run remote diagnostics on a device
+  health             - Analyze overall grid health statistics
+  server             - Check central server health metrics
+  anomaly            - Scan all devices for specific anomalies (e.g. foreign objects)
+  exit               - Quit the agent
+"""
 
-用户问题：{user_query}
+    def _report_device_status(self, device_id):
+        self.logger.info(f"Querying status for {device_id}")
+        info = get_device_status(device_id)
+        return json.dumps(info, indent=2, ensure_ascii=False)
 
-请按以下步骤处理：
-1. 先思考用户需要什么信息
-2. 调用相关工具获取数据
-3. 基于获取的数据回答
+    def _report_device_logs(self, device_id):
+        self.logger.info(f"Retrieving logs for {device_id}")
+        logs = get_device_logs(device_id)
+        return json.dumps(logs, indent=2, ensure_ascii=False)
 
-开始处理："""
+    def _run_diagnostics(self, device_id):
+        self.logger.info(f"Running diagnostics on {device_id}")
+        result = perform_diagnostic(device_id)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+
+    def _analyze_full_grid(self):
+        self.logger.info("Analyzing full grid health")
+        # Simulate gathering data from all devices
+        summaries = [get_device_status(d) for d in self.devices]
+        report = analyze_grid_health(summaries)
+        return report
+
+    def _check_server(self):
+        stats = check_server_health()
+        return json.dumps(stats, indent=2)
+
+    def _scan_for_anomalies(self):
+        self.logger.info("Scanning for anomalies across grid")
+        all_logs = []
+        for d in self.devices:
+             device_logs = get_device_logs(d)
+             # Enrich with device ID for context
+             for l in device_logs:
+                 l['device_id'] = d
+             all_logs.extend(device_logs)
         
-        # 2. 先检查是否需要调用工具
-        need_tool = False
-        tool_name = None
+        return detect_grid_anomalies(all_logs)
+
+    def run_interactive(self):
+        print("=== Power Grid Intelligent Agent v2.0 ===")
+        print("System initialized. Monitoring 5 devices.")
+        print("Type 'help' for commands.")
         
-        # 简单的关键词匹配（实际可以更智能）
-        tool_keywords = {
-            "get_device_list": ["设备", "列表", "在线", "哪些设备"],
-            "get_connection_stats": ["连接", "统计", "数量", "多少个"]
-        }
-        
-        for tool, keywords in tool_keywords.items():
-            if any(keyword in user_query for keyword in keywords):
-                need_tool = True
-                tool_name = tool
+        while True:
+            try:
+                command = input("\nAgent> ")
+                response = self.process_command(command)
+                if response == "EXIT":
+                    print("Shutting down agent...")
+                    break
+                print(response)
+            except KeyboardInterrupt:
+                print("\nInterrupted. Exiting...")
                 break
-        
-        # 3. 如果需要工具，先调用工具获取数据
-        if need_tool and tool_name in self.tools:
-            tool_result = self.tools[tool_name]["function"]()
-            tool_prompt = f"{system_prompt}\n\n工具调用结果：{tool_result}\n\n基于以上信息，请回答用户："
-            return self.call_qwen_api(tool_prompt)
-        
-        # 4. 否则直接回答
-        return self.call_qwen_api(system_prompt)
+            except Exception as e:
+                self.logger.error(f"Error processing command: {e}")
+                print(f"Error: {e}")
 
-def create_agent():
-    """创建并返回Agent实例"""
-    
-    # 初始化工具
-    device_tools = DeviceTools()
-    
-    # 定义工具集
-    tools = {
-        "get_device_list": {
-            "function": device_tools.get_device_list,
-            "description": "获取当前所有在线设备的列表。当用户问'有哪些设备'、'设备列表'时使用。"
-        },
-        "get_connection_stats": {
-            "function": device_tools.get_connection_stats,
-            "description": "获取系统的连接统计信息，包括总连接数和已注册设备数。"
-        }
-    }
-    
-    # 创建Agent实例
-    agent = QwenAgent(tools)
-    return agent
-
-# 测试代码
 if __name__ == "__main__":
-    print("正在初始化Qwen Agent...")
-    agent = create_agent()
-    print("Agent初始化成功！")
-    
-    # 测试
-    test_queries = [
-        "当前有哪些设备？",
-        "连接数是多少？",
-        "系统状态怎么样？"
-    ]
-    
-    for query in test_queries:
-        print(f"\n用户: {query}")
-        response = agent.process_query(query)
-        print(f"助手: {response}")
+    agent = PowerGridAgent()
+    agent.run_interactive()
