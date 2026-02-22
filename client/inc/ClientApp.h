@@ -6,6 +6,11 @@ class ClientApp {
 public:
     static ClientApp& getInstance();
     void run(int channelNo);
+    
+    void setNetAddress(const std::string& ip, int port) {
+        netIp = ip;
+        netPort = port;
+    }
 
 private:
     ClientApp();

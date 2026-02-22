@@ -37,7 +37,13 @@ ServerApp& ServerApp::getInstance() {
     return instance;
 }
 
-ServerApp::ServerApp() : serverSocket(-1), port(SERVER_PORT), threadPool(4) {
+ServerApp::ServerApp() : serverSocket(-1), port(SERVER_PORT), httpPort(8080), threadPool(4) {
+    m_zkClient = std::make_unique<ZkClient>();
+    m_redisClient = std::make_unique<RedisClient>();
+    m_localIp = "127.0.0.1";
+
+    m_zkHost = "";
+    m_redisHost = "";
 }
 
 ServerApp::~ServerApp() {
@@ -45,10 +51,68 @@ ServerApp::~ServerApp() {
     if (serverSocket >= 0) {
         close(serverSocket);
     }
+    // Zk/Redis clients cleaned up by unique_ptr
+}
+
+void ServerApp::Init(int p, int hp, const std::string& zkh, const std::string& rh, const std::string& lip) {
+    port = p;
+    httpPort = hp;
+    m_zkHost = zkh;
+    m_redisHost = rh;
+    m_localIp = lip;
+}
+
+
+void ServerApp::registerToZk() {
+    if (m_zkHost.empty()) return;
+    
+    // Connect to ZK
+    m_zkClient->Start(m_zkHost);
+    
+    // Create base path if not exists (Assume /gw-server exists for now or create recursive)
+    // Here we register ephemeral node
+    // Path: /gw-server/nodes/node_IP_PORT
+    std::string nodePath = "/gw-server/nodes/node_" + m_localIp + "_" + std::to_string(port);
+    std::string nodeData = "{\"ip\":\"" + m_localIp + "\",\"port\":" + std::to_string(port) + ",\"http_port\":" + std::to_string(httpPort) + "}";
+    
+    m_zkClient->Create(nodePath, nodeData, 1); // 1 = Ephemeral
+    std::cout << "[ServerApp] Registered to ZK: " << nodePath << std::endl;
+}
+
+void ServerApp::run() {
+    // 1. Initialize Distributed Components
+    if (!m_redisHost.empty()) {
+        std::string host = m_redisHost;
+        int rport = 6379;
+        size_t colon = host.find(':');
+        if (colon != std::string::npos) {
+            rport = std::stoi(host.substr(colon + 1));
+            host = host.substr(0, colon);
+        }
+        if (m_redisClient->Connect(host, rport)) {
+            std::cout << "[ServerApp] Connected to Redis at " << m_redisHost << std::endl;
+        }
+    }
+
+    if (!m_zkHost.empty()) {
+        registerToZk();
+    }
+
+    initializeSocket();
+
+    // Start HTTP server in a separate thread
+    std::thread httpThread([this](){
+        start_http_server(this->httpPort);
+    });
+    httpThread.detach();
+
+    // Start Event Loop (blocks main thread effectively)
+    eventLoop.Run();
 }
 
 void ServerApp::initializeSocket() {
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
     if (serverSocket < 0) {
         perror("socket error");
         exit(EXIT_FAILURE);
@@ -87,18 +151,6 @@ void ServerApp::initializeSocket() {
     });
 }
 
-void ServerApp::run() {
-    initializeSocket();
-
-    // Start HTTP server in a separate thread
-    std::thread httpThread([](){
-        start_http_server();
-    });
-    httpThread.detach();
-
-    // Start Event Loop (blocks main thread effectively)
-    eventLoop.Run();
-}
 
 void ServerApp::acceptLoop() {
     struct sockaddr_in client_addr = {0};

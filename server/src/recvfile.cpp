@@ -26,6 +26,7 @@
 #include "recvfile.h"
 #include "connection.h"
 #include "utils.h"
+#include "../inc/ServerApp.h"
 using namespace std;
 static unsigned char buffer[1024] = {};
 
@@ -45,6 +46,31 @@ static int HandleHeartbeat(unsigned char* pBuffer, int Length, int fd) {
     ConnectionContext* ctx = find_connection_by_fd(fd);
     if(ctx) {
         ctx->setDeviceId(device_id);
+        
+        // DISTRIBUTED: Update Redis with online status
+        // Key: device:online:<id>, Value: JSON {"ip":"...", "port":..., "http_port":...}, Expiry: 60s
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::string key = "device:online:" + std::string(device_id);
+            // Construct JSON manually
+            std::string ip = "127.0.0.1"; // Default loopback
+            std::string localAddr = ServerApp::getInstance().GetLocalAddress();
+            size_t colon = localAddr.find(':');
+            if (colon != std::string::npos) {
+                 ip = localAddr.substr(0, colon);
+            }
+            int tcp_port = 52487; 
+            // Get actual port if possible or parse from localAddr
+            // ServerApp::getInstance().GetLocalAddress() returns "IP:Port" string
+            
+            // Re-parse
+            // Note: GetLocalAddress() uses m_localIp and port member variable
+            
+            std::string jsonVal = "{\"ip\":\"" + ip + 
+                                  "\",\"port\":" + localAddr.substr(colon + 1) + 
+                                  ",\"http_port\":" + std::to_string(ServerApp::getInstance().GetHttpPort()) + "}";
+            
+            redis->Set(key, jsonVal, 60);
+        }
     }
     
     // Send Response
@@ -52,6 +78,7 @@ static int HandleHeartbeat(unsigned char* pBuffer, int Length, int fd) {
     SendHeartbeatResponse(fd);
     return 0;
 }
+
 
 // 1. Initial Handshake / Start (0x05, 0xEF)
 static int HandleFileStart(unsigned char* pBuffer, int Length, int fd) {

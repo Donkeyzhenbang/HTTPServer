@@ -4,6 +4,7 @@
 #include "connection.h"  // 包含连接管理器
 #include "sendfile.h"
 #include "modelupgrade.h"
+#include "../inc/ServerApp.h" // Access Redis
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -213,7 +214,8 @@ static std::string get_connections_html() {
     return oss.str();
 }
 
-void start_http_server() {
+void start_http_server(int port) {
+    if (port <= 0) port = 8080;
     httplib::Server svr;
 
     std::string frontend_dir = get_frontend_dir();
@@ -528,7 +530,73 @@ void start_http_server() {
         auto* conn_ctx = find_connection_by_device_id(device);
         
         if (!conn_ctx) {
-            res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered\"}", "application/json");
+            // Redis Lookup for Distributed Node
+            if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+                std::string key = "device:online:" + device;
+                std::string val = redis->Get(key);
+                if (!val.empty()) {
+                    // Start Proxy logic
+                    // Parse JSON: {"ip":"...","port":...,"http_port":...}
+                    std::string target_ip;
+                    std::string target_port_str;
+                    int target_port = 0;
+                    
+                    // Simple manual parsing
+                    // Look for "http_port": 1234
+                    size_t pos_port = val.find("\"http_port\":");
+                    if (pos_port != std::string::npos) {
+                        size_t start = pos_port + 12; // Length of "http_port":
+                        // Find first digit
+                        size_t digit_start = val.find_first_of("0123456789", start);
+                        if (digit_start != std::string::npos) {
+                            size_t digit_end = val.find_first_not_of("0123456789", digit_start);
+                            if (digit_end == std::string::npos) digit_end = val.length();
+                            target_port_str = val.substr(digit_start, digit_end - digit_start);
+                            try { target_port = std::stoi(target_port_str); } catch(...) {} 
+                        }
+                    }
+                    
+                    // Look for "ip": "..."
+                    // Correcting logic to handle possible spaces or different ordering
+                    size_t pos_ip = val.find("\"ip\":\"");
+                    if (pos_ip != std::string::npos) {
+                        size_t start = pos_ip + 6;
+                        size_t end = val.find("\"", start);
+                        if (end != std::string::npos) {
+                            target_ip = val.substr(start, end - start);
+                        }
+                    }
+
+                    std::cout << "[HTTP] Distributed Check: TargetIP=" << target_ip 
+                              << " TargetPort=" << target_port 
+                              << " SelfPort=" << ServerApp::getInstance().GetHttpPort() << std::endl;
+
+                    // Check if redirect needed
+                    if (target_port > 0 && !target_ip.empty()) {
+                         // Check self? For now assume different port => different node
+                         if (target_port != ServerApp::getInstance().GetHttpPort()) {
+                             std::cout << "[HTTP] Proxying request to " << target_ip << ":" << target_port << std::endl;
+                             // Just send same body
+                             httplib::Client cli(target_ip, target_port);
+                             cli.set_connection_timeout(2, 0); // 2s connect
+                             cli.set_read_timeout(5, 0); // 5s read
+                             
+                             auto res2 = cli.Post("/api/send_b341", req.body, "application/json");
+                             if (res2) { // Propagate response
+                                 res.status = res2->status;
+                                 res.set_content(res2->body, res2->get_header_value("Content-Type"));
+                                 return;
+                             } else {
+                                 res.status = 502;
+                                 res.set_content("{\"ok\":false,\"error\":\"proxy failed to reach target node\"}", "application/json");
+                                 return;
+                             }
+                         }
+                    }
+                }
+            }
+
+            res.set_content("{\"ok\":false,\"error\":\"device not connected or not registered locally\"}", "application/json");
             return;
         }
         
@@ -826,5 +894,5 @@ void start_http_server() {
     std::cout << "[HTTP]   GET  /health               - 健康检查\n";
     std::cout << "[HTTP]   GET  /api/test/add_connection - 测试：添加模拟连接\n";
     
-    svr.listen("0.0.0.0", 8080);
+    svr.listen("0.0.0.0", port);
 }
