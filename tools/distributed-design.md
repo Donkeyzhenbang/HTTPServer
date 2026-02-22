@@ -1,6 +1,19 @@
 # 分布式服务器设计与部署方案
 
 ## 1. 整体架构设计 (Distributed Architecture)
+```sh
+sudo apt install libhiredis-dev
+sudo apt-get install redis-server zookeeperd
+sudo service redis-server start
+sudo service zookeeper start
+
+./httpserver \
+  -p 52487 \
+  -w 8080 \
+  -z 127.0.0.1:2181 \
+  -r 127.0.0.1:6379 \
+  -i 172.17.0.1
+```
 
 本项目已从单机架构重构为支持多节点部署的分布式系统，主要组件包括：
 
