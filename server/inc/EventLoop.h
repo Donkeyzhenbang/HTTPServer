@@ -47,7 +47,7 @@ public:
     void Run() {
         running = true;
         std::vector<struct epoll_event> events(MaxEvents);
-        
+
         while (running) {
             int nfds = epoll_wait(epollFd, events.data(), MaxEvents, -1);
             if (nfds < 0) {
@@ -58,13 +58,26 @@ public:
 
             for (int i = 0; i < nfds; ++i) {
                 int fd = events[i].data.fd;
-                if (callbacks.find(fd) != callbacks.end()) {
-                    callbacks[fd](fd);
+                uint32_t ev = events[i].events;
+
+                // 处理断开连接事件：EPOLLRDHUP(对端关闭) | EPOLLHUP(挂起) | EPOLLERR(错误)
+                if (ev & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+                    if (callbacks.find(fd) != callbacks.end()) {
+                        callbacks[fd](fd);  // 触发断开回调
+                    }
+                    continue;
+                }
+
+                // 处理可读事件
+                if (ev & EPOLLIN) {
+                    if (callbacks.find(fd) != callbacks.end()) {
+                        callbacks[fd](fd);
+                    }
                 }
             }
         }
     }
-    
+
     void Stop() {
         running = false;
     }

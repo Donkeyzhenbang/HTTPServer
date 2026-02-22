@@ -395,3 +395,30 @@ netstat -tulnp | grep 6379
   设备断开 → CloseConnection → 删除Redis记录 → 各节点前端同步下线
 
   现在可以重启服务测试了。
+
+## 客户端异常断联
+  根本原因：EventLoop只处理了EPOLLIN事件，没有处理EPOLLRDHUP（对端关闭连接）、EPOLLHUP（连接挂起）、EPOLLERR（连接错误）事件。                      
+                                                                                                                                                    
+  当客户端主动断开连接时：
+  - 如果是优雅关闭（发送FIN包），epoll会触发EPOLLIN事件，read()返回0，代码能检测到
+  - 但在某些情况下（如网络异常、客户端崩溃），可能直接触发EPOLLRDHUP/EPOLLHUP事件，而不是EPOLLIN
+
+  修复内容
+
+  EventLoop.h - 增加对连接断开事件的处理：
+  // 处理断开连接事件：EPOLLRDHUP(对端关闭) | EPOLLHUP(挂起) | EPOLLERR(错误)
+  if (ev & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+      if (callbacks.find(fd) != callbacks.end()) {
+          callbacks[fd](fd);  // 触发断开回调
+      }
+      continue;
+  }
+
+  这样，当检测到连接断开事件时，会触发OnClientRead回调，进而调用CloseConnection，清理本地连接和Redis记录。
+
+  完整链路
+
+  客户端断开连接 → epoll检测到EPOLLRDHUP/EPOLLHUP/EPOLLERR
+      → 触发OnClientRead → CloseConnection
+          → 删除本地连接上下文
+          → 删除Redis记录(device:online:XXX)
