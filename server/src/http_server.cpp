@@ -9,6 +9,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <map>
+#include <unordered_set>
 #include <mutex>
 #include <dirent.h>
 #include <sys/socket.h>
@@ -142,10 +144,54 @@ static std::vector<std::string> filter_files_by_channel(const std::vector<std::s
     return filtered;
 }
 
-// 新增：获取连接统计信息的HTML
+// 新增：获取连接统计信息的HTML (分布式全网视图)
 static std::string get_connections_html() {
-    size_t total_connections = get_connection_count();
-    auto connections = get_all_connections();
+    // 1. 获取本地连接
+    auto local_connections = get_all_connections(); // map<fd, description>
+    
+    // 2. 从描述中提取本地设备ID (用于去重)
+    std::unordered_set<std::string> local_device_ids;
+    for(const auto& conn : local_connections) {
+        size_t start = conn.second.find('(');
+        size_t end = conn.second.find(')');
+        if(start != std::string::npos && end != std::string::npos) {
+             std::string id = conn.second.substr(start+1, end-start-1);
+             if(id != "未注册") local_device_ids.insert(id);
+        }
+    }
+
+    // 3. 获取 Redis 全局在线设备
+    struct RemoteNodeInfo { std::string ip; int port; int http_port; };
+    std::map<std::string, RemoteNodeInfo> remote_devices;
+    
+    if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+         std::vector<std::string> keys = redis->Keys("device:online:*");
+         for(const auto& k : keys) {
+             std::string dev_id = k.substr(14); // len("device:online:")
+             
+             // 如果本地已经有了，跳过（本地优先展示）
+             if(local_device_ids.count(dev_id)) continue;
+
+             std::string val = redis->Get(k);
+             
+             // 简单解析 JSON
+             RemoteNodeInfo info = {"未知", 0, 0};
+             size_t p1 = val.find("\"ip\":\"");
+             if(p1 != std::string::npos) {
+                 size_t p2 = val.find("\"", p1+6);
+                 if(p2 != std::string::npos) info.ip = val.substr(p1+6, p2-p1-6);
+             }
+             p1 = val.find("\"port\":");
+             if(p1 != std::string::npos) {
+                 info.port = std::stoi(val.substr(p1+7));
+             }
+             p1 = val.find("\"http_port\":");
+             if(p1 != std::string::npos) {
+                 info.http_port = std::stoi(val.substr(p1+12)); // 修正解析
+             }
+             remote_devices[dev_id] = info;
+         }
+    }
     
     std::time_t now_time = std::time(nullptr);
     std::tm now_tm;
@@ -154,48 +200,50 @@ static std::string get_connections_html() {
     std::ostringstream oss;
     oss << "<div style='margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); "
         << "border-radius: 8px; border: 1px solid #a5d6a7; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);'>";
-    oss << "<h3 style='margin-top: 0; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 8px;'>连接统计</h3>";
+    oss << "<h3 style='margin-top: 0; color: #2e7d32; border-bottom: 1px solid #c8e6c9; padding-bottom: 8px;'>全网连接统计 (分布式视图)</h3>";
     oss << "<div style='margin-bottom: 15px; font-size: 1.1em;'>";
-    oss << "<strong style='color: #388e3c;'>总连接数:</strong> "
+    oss << "<strong style='color: #388e3c;'>当前节点连接:</strong> "
         << "<span style='color: #2e7d32; font-weight: bold; font-size: 1.2em; margin-left: 8px;'>" 
-        << total_connections << "</span>";
-    oss << "<span style='margin-left: 20px; color: #388e3c;'>已注册设备:</span> "
-        << "<span style='color: #2e7d32; font-weight: bold; margin-left: 8px;'>"
-        << get_all_device_ids().size() << "</span>";
+        << local_connections.size() << "</span>";
+    oss << "<span style='margin-left: 20px; color: #388e3c;'>全网远程设备:</span> "
+        << "<span style='color: #1565c0; font-weight: bold; margin-left: 8px;'>"
+        << remote_devices.size() << "</span>";
     oss << "</div>";
     
-    if (connections.empty()) {
+    if (local_connections.empty() && remote_devices.empty()) {
         oss << "<div style='color: #388e3c; font-style: italic; padding: 20px; text-align: center; "
             << "background: rgba(200, 230, 201, 0.5); border-radius: 4px;'>暂无活跃连接</div>";
     } else {
-        oss << "<div style='max-height: 300px; overflow-y: auto;'>";
+        oss << "<div style='max-height: 400px; overflow-y: auto;'>";
         oss << "<table style='width: 100%; border-collapse: collapse; font-size: 0.9em;'>";
         oss << "<thead>";
         oss << "<tr style='background: #c8e6c9; color: #1b5e20;'>";
-        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>文件描述符</th>";
-        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>设备/连接信息</th>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>位置/FD</th>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>设备信息</th>";
+        oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>节点地址</th>";
         oss << "<th style='padding: 10px; text-align: left; border-bottom: 2px solid #2e7d32;'>状态</th>";
         oss << "</tr>";
         oss << "</thead>";
         oss << "<tbody>";
         
-        for (const auto& conn : connections) {
+        // 1. 显示本地连接
+        for (const auto& conn : local_connections) {
             bool is_registered = conn.second.find("未注册") == std::string::npos;
-            
-            oss << "<tr style='border-bottom: 1px solid #c8e6c9;'>";
-            oss << "<td style='padding: 10px; color: #1b5e20;'>" << conn.first << "</td>";
-            oss << "<td style='padding: 10px; color: " 
-                << (is_registered ? "#2e7d32" : "#388e3c") << ";'>"
-                << conn.second << "</td>";
-            oss << "<td style='padding: 10px;'>";
-            if (is_registered) {
-                oss << "<span style='background: #4caf50; color: #ffffff; padding: 3px 8px; "
-                    << "border-radius: 12px; font-size: 0.8em; font-weight: bold;'>已注册</span>";
-            } else {
-                oss << "<span style='background: #81c784; color: #ffffff; padding: 3px 8px; "
-                    << "border-radius: 12px; font-size: 0.8em;'>未注册</span>";
-            }
-            oss << "</td>";
+            oss << "<tr style='border-bottom: 1px solid #c8e6c9; background-color: rgba(255,255,255,0.6);'>";
+            oss << "<td style='padding: 10px; color: #1b5e20;'><strong>[本机]</strong> FD=" << conn.first << "</td>";
+            oss << "<td style='padding: 10px; color: " << (is_registered ? "#2e7d32" : "#388e3c") << ";'>" << conn.second << "</td>";
+            oss << "<td style='padding: 10px; color: #666;'>127.0.0.1 (Local)</td>";
+            oss << "<td style='padding: 10px;'><span style='background: #4caf50; color: #ffffff; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;'>在线</span></td>";
+            oss << "</tr>";
+        }
+
+        // 2. 显示远程连接
+        for (const auto& kv : remote_devices) {
+            oss << "<tr style='border-bottom: 1px solid #b3e5fc; background-color: #e1f5fe;'>";
+            oss << "<td style='padding: 10px; color: #0277bd;'><strong>[远程]</strong> Redis</td>";
+            oss << "<td style='padding: 10px; color: #0277bd; font-weight:bold;'>" << kv.first << "</td>";
+            oss << "<td style='padding: 10px; color: #0288d1;'>" << kv.second.ip << ":" << kv.second.http_port << "</td>";
+            oss << "<td style='padding: 10px;'><span style='background: #29b6f6; color: #ffffff; padding: 3px 8px; border-radius: 12px; font-size: 0.8em;'>云端同步</span></td>";
             oss << "</tr>";
         }
         

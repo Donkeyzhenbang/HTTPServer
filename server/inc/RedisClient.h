@@ -2,6 +2,7 @@
 #define REDISCLIENT_H
 
 #include <string>
+#include <vector>
 #include <mutex>
 #include <hiredis/hiredis.h>
 
@@ -17,6 +18,7 @@ public:
     bool Set(const std::string& key, const std::string& value, int expirySeconds = 0);
     std::string Get(const std::string& key);
     bool Del(const std::string& key);
+    std::vector<std::string> Keys(const std::string& pattern);
 
 private:
     redisContext* m_context;

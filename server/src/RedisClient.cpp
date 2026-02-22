@@ -89,3 +89,23 @@ bool RedisClient::Del(const std::string& key) {
     freeReplyObject(reply);
     return true;
 }
+
+std::vector<std::string> RedisClient::Keys(const std::string& pattern) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_context) return {};
+
+    redisReply *reply = (redisReply*)redisCommand(m_context, "KEYS %s", pattern.c_str());
+    if (reply == nullptr) return {};
+
+    std::vector<std::string> keys;
+    if (reply->type == REDIS_REPLY_ARRAY) {
+        for (size_t i = 0; i < reply->elements; i++) {
+             if (reply->element[i]->type == REDIS_REPLY_STRING) {
+                keys.push_back(reply->element[i]->str);
+             }
+        }
+    }
+    
+    freeReplyObject(reply);
+    return keys;
+}
