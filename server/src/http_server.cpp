@@ -372,46 +372,114 @@ void start_http_server(int port) {
         res.set_content(oss.str(), "application/json");
     });
 
-    // GET /api/devices -> 获取已注册设备的设备ID列表
+    // GET /api/devices -> 获取已注册设备的设备ID列表 (分布式全网视图)
     svr.Get("/api/devices", [](const httplib::Request &req, httplib::Response &res) {
-        auto devices = get_all_device_ids();
-        
+        auto local_devices = get_all_device_ids();
+        std::unordered_set<std::string> local_device_set(local_devices.begin(), local_devices.end());
+
+        // 从Redis获取全网设备
+        std::vector<std::string> all_devices = local_devices;
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::vector<std::string> keys = redis->Keys("device:online:*");
+            for (const auto& k : keys) {
+                std::string dev_id = k.substr(14); // len("device:online:")
+                if (!local_device_set.count(dev_id)) {
+                    all_devices.push_back(dev_id);
+                }
+            }
+        }
+
         std::ostringstream oss;
         oss << "{";
-        oss << "\"total\":" << devices.size() << ",";
+        oss << "\"total\":" << all_devices.size() << ",";
         oss << "\"devices\":[";
-        for (size_t i = 0; i < devices.size(); ++i) {
+        for (size_t i = 0; i < all_devices.size(); ++i) {
             if (i) oss << ",";
-            oss << "\"" << devices[i] << "\"";
+            oss << "\"" << all_devices[i] << "\"";
         }
         oss << "],";
-        oss << "\"connections\":" << get_connection_count();
+        oss << "\"local_connections\":" << get_connection_count();
         oss << "}";
         res.set_content(oss.str(), "application/json");
     });
 
-    // GET /api/connections -> 获取详细的连接信息
+    // GET /api/connections -> 获取详细的连接信息 (分布式全网视图)
     svr.Get("/api/connections", [](const httplib::Request &req, httplib::Response &res) {
         auto connections = get_all_connections();
         auto devices = get_all_device_ids();
-        
+
+        // 获取本地设备ID集合用于去重
+        std::unordered_set<std::string> local_device_ids;
+        for (const auto& conn : connections) {
+            size_t start = conn.second.find('(');
+            size_t end = conn.second.find(')');
+            if (start != std::string::npos && end != std::string::npos) {
+                std::string id = conn.second.substr(start + 1, end - start - 1);
+                if (id != "未注册") local_device_ids.insert(id);
+            }
+        }
+
+        // 从Redis获取远程设备信息
+        struct RemoteInfo { std::string ip; int port; int http_port; };
+        std::map<std::string, RemoteInfo> remote_devices;
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::vector<std::string> keys = redis->Keys("device:online:*");
+            for (const auto& k : keys) {
+                std::string dev_id = k.substr(14);
+                if (local_device_ids.count(dev_id)) continue; // 跳过本地已有的
+
+                std::string val = redis->Get(k);
+                RemoteInfo info = {"unknown", 0, 0};
+                size_t p1 = val.find("\"ip\":\"");
+                if (p1 != std::string::npos) {
+                    size_t p2 = val.find("\"", p1 + 6);
+                    if (p2 != std::string::npos) info.ip = val.substr(p1 + 6, p2 - p1 - 6);
+                }
+                p1 = val.find("\"port\":");
+                if (p1 != std::string::npos) {
+                    info.port = std::stoi(val.substr(p1 + 7));
+                }
+                p1 = val.find("\"http_port\":");
+                if (p1 != std::string::npos) {
+                    info.http_port = std::stoi(val.substr(p1 + 12));
+                }
+                remote_devices[dev_id] = info;
+            }
+        }
+
         std::ostringstream oss;
         oss << "{";
         oss << "\"total_connections\":" << get_connection_count() << ",";
-        oss << "\"registered_devices\":" << devices.size() << ",";
+        oss << "\"local_registered_devices\":" << devices.size() << ",";
+        oss << "\"remote_devices\":" << remote_devices.size() << ",";
         oss << "\"connections\":[";
-        
+
+        // 先输出本地连接
         for (size_t i = 0; i < connections.size(); ++i) {
             if (i) oss << ",";
             oss << "{";
             oss << "\"fd\":" << connections[i].first << ",";
             oss << "\"device_id\":\"" << connections[i].second << "\",";
-            oss << "\"status\":\"" 
+            oss << "\"location\":\"local\",";
+            oss << "\"status\":\""
                 << (connections[i].second.find("未注册") == std::string::npos ? "registered" : "unregistered")
                 << "\"";
             oss << "}";
         }
-        
+
+        // 再输出远程连接
+        for (const auto& kv : remote_devices) {
+            if (!connections.empty() || &kv != &*remote_devices.begin()) oss << ",";
+            oss << "{";
+            oss << "\"fd\":-1,";
+            oss << "\"device_id\":\"" << kv.first << "\",";
+            oss << "\"location\":\"remote\",";
+            oss << "\"node_ip\":\"" << kv.second.ip << "\",";
+            oss << "\"node_port\":" << kv.second.port << ",";
+            oss << "\"status\":\"online\"";
+            oss << "}";
+        }
+
         oss << "]}";
         res.set_content(oss.str(), "application/json");
     });

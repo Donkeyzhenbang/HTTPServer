@@ -48,3 +48,34 @@ netstat -tulnp | grep 6379
 
 *   **原因**：`-101` 表示节点已存在 (`ZNODEEXISTS`)。这说明您的第二台服务器之前已经成功在 ZooKeeper 上注册过一次，且连接未断开（或者是上次非正常退出，临时节点还没过期）。
 *   **处理**：这是**正常现象**，不影响使用。程序逻辑中，如果节点已存在，会忽略创建错误并继续运行，此时实际上它已经“注册”成功了（或者说复用了之前的注册）。
+
+
+## 修改总结
+
+                                                                                                                                        
+  问题原因：                                                                                                                            
+  - 设备心跳时会将信息写入 Redis (device:online:<device_id>)                                                                            
+  - 首页 / 的 get_connections_html() 会查询 Redis 获取全网设备
+  - 但 /api/devices 和 /api/connections 只返回本地连接，没有查询 Redis
+
+  修改内容 (http_server.cpp)：
+
+  1. /api/devices - 现在返回全网设备列表：
+    - 获取本地设备
+    - 从 Redis 查询 device:online:* 获取其他节点设备
+    - 合并、去重后返回
+  2. /api/connections - 现在返回全网连接详情：
+    - 本地连接：增加 location: "local" 字段
+    - 远程连接：增加 location: "remote"、node_ip、node_port 字段
+    - 新增 remote_devices 统计字段
+
+  现在的完整链路：
+  设备连接 → 心跳 → 写入 Redis (device:online:<id>)
+                          ↓
+  前端调用 /api/devices 或 /api/connections
+                          ↓
+  查询本地连接 + 查询Redis全网设备
+                          ↓
+  返回全网设备列表（节点A和节点B都能看到）
+
+  重启服务后，节点B的前端应该能看到节点A连接的设备了。
