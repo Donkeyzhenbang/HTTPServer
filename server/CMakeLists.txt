@@ -53,6 +53,7 @@ set(SERVER_CORE_SOURCES
     src/recvfile.cpp
     src/ZkClient.cpp
     src/RedisClient.cpp
+    src/DistributedCoord.cpp
 )
 
 add_library(server_core STATIC ${SERVER_CORE_SOURCES})

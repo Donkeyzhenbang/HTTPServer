@@ -1,6 +1,7 @@
 #include "../inc/ServerApp.h"
 #include "../inc/http_server.h"
 #include "../inc/HttpServer.h"
+#include "../inc/DistributedCoord.h"
 #include <iostream>
 #include <unistd.h>
 #include <cstring>
@@ -66,18 +67,17 @@ void ServerApp::Init(int p, int hp, const std::string& zkh, const std::string& r
 
 void ServerApp::registerToZk() {
     if (m_zkHost.empty()) return;
-    
+
     // Connect to ZK
     m_zkClient->Start(m_zkHost);
-    
-    // Create base path if not exists (Assume /gw-server exists for now or create recursive)
-    // Here we register ephemeral node
-    // Path: /gw-server/nodes/node_IP_PORT
-    std::string nodePath = "/gw-server/nodes/node_" + m_localIp + "_" + std::to_string(port);
-    std::string nodeData = "{\"ip\":\"" + m_localIp + "\",\"port\":" + std::to_string(port) + ",\"http_port\":" + std::to_string(httpPort) + "}";
-    
-    m_zkClient->Create(nodePath, nodeData, 1); // 1 = Ephemeral
-    std::cout << "[ServerApp] Registered to ZK: " << nodePath << std::endl;
+
+    // 使用新的分布式协调器
+    gw::DistributedCoord::Instance().Init(m_zkClient.get(), m_localIp, port, httpPort);
+
+    // 参与选主
+    gw::DistributedCoord::Instance().ParticipateElection();
+
+    std::cout << "[ServerApp] DistributedCoord initialized" << std::endl;
 }
 
 void ServerApp::run() {
