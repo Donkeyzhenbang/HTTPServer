@@ -683,14 +683,19 @@ void start_http_server(int port) {
                         }
                     }
 
-                    std::cout << "[HTTP] Distributed Check: TargetIP=" << target_ip 
-                              << " TargetPort=" << target_port 
+                    std::cout << "[HTTP] Distributed Check: TargetIP=" << target_ip
+                              << " TargetPort=" << target_port
+                              << " SelfIP=" << ServerApp::getInstance().GetLocalIp()
                               << " SelfPort=" << ServerApp::getInstance().GetHttpPort() << std::endl;
 
-                    // Check if redirect needed
-                    if (target_port > 0 && !target_ip.empty()) {
-                         // Check self? For now assume different port => different node
-                         if (target_port != ServerApp::getInstance().GetHttpPort()) {
+                    // Check if redirect needed: 判断目标是否为本机
+                    // 需要同时满足：IP相同 且 端口相同 才认为是本机，否则需要转发
+                    bool is_local = (target_ip == ServerApp::getInstance().GetLocalIp() ||
+                                     target_ip == "127.0.0.1" ||
+                                     target_ip == "localhost") &&
+                                    (target_port == ServerApp::getInstance().GetHttpPort());
+
+                    if (target_port > 0 && !target_ip.empty() && !is_local) {
                              std::cout << "[HTTP] Proxying request to " << target_ip << ":" << target_port << std::endl;
                              // Just send same body
                              httplib::Client cli(target_ip, target_port);
@@ -707,7 +712,6 @@ void start_http_server(int port) {
                                  res.set_content("{\"ok\":false,\"error\":\"proxy failed to reach target node\"}", "application/json");
                                  return;
                              }
-                         }
                     }
                 }
             }

@@ -28,6 +28,7 @@ public:
     RedisClient* GetRedisClient() { return m_redisClient.get(); }
     ZkClient* GetZkClient() { return m_zkClient.get(); }
     std::string GetLocalAddress() const { return m_localIp + ":" + std::to_string(port); }
+    std::string GetLocalIp() const { return m_localIp; }
     int GetHttpPort() const { return httpPort; }
 
 private:
