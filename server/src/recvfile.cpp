@@ -69,7 +69,7 @@ static int HandleHeartbeat(unsigned char* pBuffer, int Length, int fd) {
                                   "\",\"port\":" + localAddr.substr(colon + 1) + 
                                   ",\"http_port\":" + std::to_string(ServerApp::getInstance().GetHttpPort()) + "}";
             
-            redis->Set(key, jsonVal, 60);
+            redis->Set(key, jsonVal, 180);  // 180秒TTL，保证心跳间隔内有记录
         }
     }
     
@@ -266,18 +266,34 @@ static int FindSyncHeader(const std::vector<uint8_t>& buffer, int start) {
 // Helper to Cleanly Close Connection
 static void CloseConnection(int fd) {
     // Check if valid
-    if (find_connection_by_fd(fd) == nullptr) return; 
+    ConnectionContext* ctx = find_connection_by_fd(fd);
+    if (ctx == nullptr) return;
 
-    printf("[CloseConnection] Client Disconnected. Cleaning fd=%d\n", fd);
-    
+    // 获取设备ID用于删除Redis记录
+    std::string device_id;
+    if (ctx->hasDeviceId()) {
+        device_id = ctx->getDeviceId();
+    }
+
+    printf("[CloseConnection] Client Disconnected. Cleaning fd=%d, device_id=%s\n", fd, device_id.c_str());
+
     // 1. Remove from Reactor to stop events
     ServerApp::getInstance().getEventLoop().RemoveSocket(fd);
-    
+
     // 2. Close OS Socket
     close(fd);
-    
+
     // 3. Remove Application Context (updates global map/device list)
     remove_connection_context(fd);
+
+    // 4. DISTRIBUTED: 删除Redis中的设备在线记录
+    if (!device_id.empty()) {
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::string key = "device:online:" + device_id;
+            redis->Del(key);
+            std::cout << "[CloseConnection] Removed Redis key: " << key << std::endl;
+        }
+    }
 }
 
 void OnClientRead(int fd) {

@@ -325,3 +325,73 @@ netstat -tulnp | grep 6379
   返回全网设备列表（节点A和节点B都能看到）
 
   重启服务后，节点B的前端应该能看到节点A连接的设备了。
+
+## 分布式路由
+
+问题排查总结                                                                                                                          
+                                                
+  根本原因：                                                                                                                            
+  原来的路由判断逻辑 (http_server.cpp:693)：                                                                                            
+  if (target_port != ServerApp::getInstance().GetHttpPort())
+
+  问题是：两个节点的HTTP端口都是8080，所以条件不满足，直接跳过了代理转发，导致返回 "device not connected or not registered locally"
+  错误。
+
+  修复方案：
+  改为判断目标IP是否为本机：
+  bool is_local = (target_ip == ServerApp::getInstance().GetLocalIp() ||
+                   target_ip == "127.0.0.1" ||
+                   target_ip == "localhost") &&
+                  (target_port == ServerApp::getInstance().GetHttpPort());
+
+  if (target_port > 0 && !target_ip.empty() && !is_local) {
+      // 转发到目标节点
+  }
+
+  修复逻辑：
+  - 只有当 目标IP = 本机IP 且 目标端口 = 本机端口 时，才认为设备在本机
+  - 否则都需要HTTP代理转发到目标节点
+
+  测试步骤：
+  1. 重启两个节点的服务
+  2. 客户端连接节点A
+  3. 在节点B前端调用 /api/send_b341 发送指令
+  4. 应该能成功路由到节点A并转发到设备
+
+## 设备上线redis与前端不匹配bug     
+
+  1. 设备断开时没有删除Redis记录 - 导致其他节点无法感知设备已离线
+  2. Redis TTL太短(60秒) - 设备心跳间隔稍长就会导致Redis记录过期，其他节点无法路由
+  3. 跨节点路由判断逻辑错误 - 之前已修复（判断IP而不是端口）
+
+  修复内容：
+
+  1. recvfile.cpp - 设备断开时删除Redis记录
+  // CloseConnection 中添加：
+  if (!device_id.empty()) {
+      if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+          std::string key = "device:online:" + device_id;
+          redis->Del(key);
+      }
+  }
+
+  2. recvfile.cpp - 增加Redis TTL到180秒
+  redis->Set(key, jsonVal, 180);  // 180秒TTL
+
+  3. http_server.cpp - 跨节点路由判断 (之前已修复)
+  bool is_local = (target_ip == ServerApp::getInstance().GetLocalIp() ||
+                   target_ip == "127.0.0.1" ||
+                   target_ip == "localhost") &&
+                  (target_port == ServerApp::getInstance().GetHttpPort());
+
+  完整链路验证：
+
+  设备连接B节点 → 心跳 → Redis: device:online:XXX → {ip:B, http_port:8080, TTL:180s}
+                          ↓
+  节点A查询 /api/devices → Redis Keys → 返回全网设备列表
+                          ↓
+  节点B前端要图 → find_connection_by_device_id (本机找到) → 直接发送
+                          ↓
+  设备断开 → CloseConnection → 删除Redis记录 → 各节点前端同步下线
+
+  现在可以重启服务测试了。
