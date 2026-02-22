@@ -1013,6 +1013,606 @@ void start_http_server(int port) {
     std::cout << "[HTTP]   POST /api/upload_model     - 上传模型文件到设备\n";
     std::cout << "[HTTP]   GET  /health               - 健康检查\n";
     std::cout << "[HTTP]   GET  /api/test/add_connection - 测试：添加模拟连接\n";
-    
+
     svr.listen("0.0.0.0", port);
+}
+
+// 新HTTP Server的初始化函数 (基于epoll高性能版本)
+void init_new_http_server(gw::HttpServer* server) {
+    if (!server) return;
+
+    std::string frontend_dir = get_frontend_dir();
+    std::string upload_dir = get_upload_dir();
+    std::string engines_dir = get_engines_dir();
+
+    // 设置静态文件目录
+    server->AddMountPoint("/", frontend_dir);
+    server->AddMountPoint("/uploads", upload_dir);
+    server->AddMountPoint("/engines", engines_dir);
+
+    // 主页路由，显示连接信息
+    server->Get("/", [frontend_dir](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::ifstream ifs(frontend_dir + "/index.html");
+        if (!ifs) {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetText("找不到 index.html");
+            return;
+        }
+
+        std::string content((std::istreambuf_iterator<char>(ifs)),
+                           std::istreambuf_iterator<char>());
+
+        size_t pos = content.find("<body>");
+        if (pos != std::string::npos) {
+            pos += 6;
+            std::string connections_html = get_connections_html();
+            content.insert(pos, connections_html);
+        }
+
+        res.SetHtml(content);
+    });
+
+    // POST /upload - 文件上传
+    server->Post("/upload", [upload_dir](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        // 简单实现：检查Content-Type是否为multipart
+        std::string content_type = req.GetHeader("Content-Type");
+
+        if (content_type.find("multipart/form-data") != 0) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"Content-Type must be multipart/form-data\"}");
+            return;
+        }
+
+        // 解析body中的multipart数据 (简化版)
+        // 实际生产环境建议使用专门的multipart解析库
+        std::string boundary;
+        size_t pos = content_type.find("boundary=");
+        if (pos != std::string::npos) {
+            boundary = content_type.substr(pos + 9);
+        }
+
+        if (boundary.empty() || req.body.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"invalid request\"}");
+            return;
+        }
+
+        // 解析filename和content
+        std::string filename;
+        std::string file_content;
+
+        // 简单解析：查找filename="..." 和 Content-Length
+        size_t fn_pos = req.body.find("filename=\"");
+        if (fn_pos != std::string::npos) {
+            size_t fn_start = fn_pos + 10;
+            size_t fn_end = req.body.find("\"", fn_start);
+            if (fn_end != std::string::npos) {
+                filename = req.body.substr(fn_start, fn_end - fn_start);
+            }
+        }
+
+        if (filename.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"empty filename\"}");
+            return;
+        }
+
+        // 获取通道参数
+        int channel = 1;
+        std::string channel_str = req.GetQuery("channel");
+        if (!channel_str.empty()) {
+            try {
+                channel = std::stoi(channel_str);
+                if (channel < 1) channel = 1;
+                if (channel > 6) channel = 6;
+            } catch (...) {}
+        }
+
+        // 提取文件内容 (在两个boundary之间)
+        size_t body_start = req.body.find("\r\n\r\n");
+        if (body_start != std::string::npos) {
+            body_start += 4;
+            size_t body_end = req.body.rfind("\r\n--" + boundary);
+            if (body_end == std::string::npos) {
+                body_end = req.body.size();
+            }
+            file_content = req.body.substr(body_start, body_end - body_start - 2);
+        }
+
+        if (file_content.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"empty file content\"}");
+            return;
+        }
+
+        // 保存文件
+        std::string saved = save_upload_to_web(filename, file_content, channel);
+        if (saved.empty()) {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetJson("{\"ok\":false,\"error\":\"save failed\"}");
+            return;
+        }
+
+        std::ostringstream j;
+        j << "{\"ok\":true,\"filename\":\"" << saved << "\",\"url\":\"/uploads/"
+          << saved << "\",\"channel\":" << channel << "}";
+        res.SetJson(j.str());
+    });
+
+    // GET /api/images
+    server->Get("/api/images", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string upload_dir = get_upload_dir();
+        auto list = list_uploaded_files(upload_dir);
+
+        // 通道过滤
+        std::string channel_str = req.GetQuery("channel");
+        if (!channel_str.empty()) {
+            try {
+                int channel = std::stoi(channel_str);
+                if (channel > 0) {
+                    list = filter_files_by_channel(list, channel);
+                }
+            } catch (...) {}
+        }
+
+        std::ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (i) oss << ",";
+            oss << "\"" << list[i] << "\"";
+        }
+        oss << "]";
+        res.SetJson(oss.str());
+    });
+
+    // GET /api/devices
+    server->Get("/api/devices", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        auto local_devices = get_all_device_ids();
+        std::unordered_set<std::string> local_device_set(local_devices.begin(), local_devices.end());
+
+        std::vector<std::string> all_devices = local_devices;
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::vector<std::string> keys = redis->Keys("device:online:*");
+            for (const auto& k : keys) {
+                std::string dev_id = k.substr(14);
+                if (!local_device_set.count(dev_id)) {
+                    all_devices.push_back(dev_id);
+                }
+            }
+        }
+
+        std::ostringstream oss;
+        oss << "{";
+        oss << "\"total\":" << all_devices.size() << ",";
+        oss << "\"devices\":[";
+        for (size_t i = 0; i < all_devices.size(); ++i) {
+            if (i) oss << ",";
+            oss << "\"" << all_devices[i] << "\"";
+        }
+        oss << "],";
+        oss << "\"local_connections\":" << get_connection_count();
+        oss << "}";
+        res.SetJson(oss.str());
+    });
+
+    // GET /api/connections
+    server->Get("/api/connections", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        auto connections = get_all_connections();
+        auto devices = get_all_device_ids();
+
+        std::unordered_set<std::string> local_device_ids;
+        for (const auto& conn : connections) {
+            size_t start = conn.second.find('(');
+            size_t end = conn.second.find(')');
+            if (start != std::string::npos && end != std::string::npos) {
+                std::string id = conn.second.substr(start + 1, end - start - 1);
+                if (id != "未注册") local_device_ids.insert(id);
+            }
+        }
+
+        struct RemoteInfo { std::string ip; int port; int http_port; };
+        std::map<std::string, RemoteInfo> remote_devices;
+        if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+            std::vector<std::string> keys = redis->Keys("device:online:*");
+            for (const auto& k : keys) {
+                std::string dev_id = k.substr(14);
+                if (local_device_ids.count(dev_id)) continue;
+
+                std::string val = redis->Get(k);
+                RemoteInfo info = {"unknown", 0, 0};
+                size_t p1 = val.find("\"ip\":\"");
+                if (p1 != std::string::npos) {
+                    size_t p2 = val.find("\"", p1 + 6);
+                    if (p2 != std::string::npos) info.ip = val.substr(p1 + 6, p2 - p1 - 6);
+                }
+                p1 = val.find("\"port\":");
+                if (p1 != std::string::npos) {
+                    info.port = std::stoi(val.substr(p1 + 7));
+                }
+                p1 = val.find("\"http_port\":");
+                if (p1 != std::string::npos) {
+                    info.http_port = std::stoi(val.substr(p1 + 12));
+                }
+                remote_devices[dev_id] = info;
+            }
+        }
+
+        std::ostringstream oss;
+        oss << "{";
+        oss << "\"total_connections\":" << get_connection_count() << ",";
+        oss << "\"local_registered_devices\":" << devices.size() << ",";
+        oss << "\"remote_devices\":" << remote_devices.size() << ",";
+        oss << "\"connections\":[";
+
+        for (size_t i = 0; i < connections.size(); ++i) {
+            if (i) oss << ",";
+            oss << "{";
+            oss << "\"fd\":" << connections[i].first << ",";
+            oss << "\"device_id\":\"" << connections[i].second << "\",";
+            oss << "\"location\":\"local\",";
+            oss << "\"status\":\""
+                << (connections[i].second.find("未注册") == std::string::npos ? "registered" : "unregistered")
+                << "\"";
+            oss << "}";
+        }
+
+        for (const auto& kv : remote_devices) {
+            if (!connections.empty() || &kv != &*remote_devices.begin()) oss << ",";
+            oss << "{";
+            oss << "\"fd\":-1,";
+            oss << "\"device_id\":\"" << kv.first << "\",";
+            oss << "\"location\":\"remote\",";
+            oss << "\"node_ip\":\"" << kv.second.ip << "\",";
+            oss << "\"node_port\":" << kv.second.port << ",";
+            oss << "\"status\":\"online\"";
+            oss << "}";
+        }
+
+        oss << "]}";
+        res.SetJson(oss.str());
+    });
+
+    // GET /health
+    server->Get("/health", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        size_t conn_count = get_connection_count();
+        size_t device_count = get_all_device_ids().size();
+
+        std::time_t now_time = std::time(nullptr);
+        std::tm now_tm;
+        localtime_r(&now_time, &now_tm);
+        char time_buf[64];
+        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &now_tm);
+
+        std::ostringstream oss;
+        oss << "{";
+        oss << "\"status\":\"ok\",";
+        oss << "\"connections\":" << conn_count << ",";
+        oss << "\"registered_devices\":" << device_count << ",";
+        oss << "\"timestamp\":\"" << time_buf << "\"";
+        oss << "}";
+        res.SetJson(oss.str());
+    });
+
+    // GET /api/test/add_connection
+    server->Get("/api/test/add_connection", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string device_id = req.GetQuery("device_id");
+
+        if (device_id.empty()) {
+            // 自动生成一个测试设备ID
+            std::time_t t = std::time(nullptr);
+            std::ostringstream oss;
+            oss << "TEST_" << t;
+            device_id = oss.str();
+        }
+
+        // 使用test_add_simulated_connection函数
+        static int test_fd_counter = 1000;
+        char test_device_id[17];
+        snprintf(test_device_id, sizeof(test_device_id), "TEST%08X", rand() % 0xFFFFFFFF);
+
+        {
+            std::lock_guard<std::mutex> lock(connection_manager_mutex);
+            int fd = test_fd_counter++;
+            connection_manager[fd] = std::make_unique<ConnectionContext>(fd);
+            if (rand() % 2 == 0) {
+                connection_manager[fd]->setDeviceId(test_device_id);
+            }
+        }
+
+        res.SetJson("{\"ok\":true,\"device_id\":\"" + std::string(test_device_id) + "\"}");
+    });
+
+    // POST /api/request_snapshot
+    server->Post("/api/request_snapshot", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string device = req.GetQuery("device");
+        int channel = 1;
+
+        std::string channel_str = req.GetQuery("channel");
+        if (!channel_str.empty()) {
+            try {
+                channel = std::stoi(channel_str);
+                if (channel < 1) channel = 1;
+                if (channel > 6) channel = 6;
+            } catch (...) {}
+        }
+
+        if (device.empty()) {
+            // 尝试从body解析
+            device = req.GetQuery("device");
+        }
+
+        if (device.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"missing device\"}");
+            return;
+        }
+
+        // 查找设备连接
+        auto* conn_ctx = find_connection_by_device_id(device);
+        if (!conn_ctx) {
+            res.SetStatus(404, "Not Found");
+            res.SetJson("{\"ok\":false,\"error\":\"device not found\"}");
+            return;
+        }
+
+        // 发送快照请求 (直接发送协议命令)
+        std::ostringstream proto;
+        proto << "CMD:SNAPSHOT;CH:" << channel << "\n";
+        std::string proto_s = proto.str();
+        ssize_t n = ::send(conn_ctx->connfd, proto_s.c_str(), proto_s.size(), 0);
+
+        if (n <= 0) {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetJson("{\"ok\":false,\"error\":\"send failed\"}");
+            return;
+        }
+
+        res.SetJson("{\"ok\":true,\"device\":\"" + device + "\",\"channel\":" + std::to_string(channel) + "}");
+    });
+
+    // POST /api/send_b341
+    server->Post("/api/send_b341", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string device = req.GetQuery("device");
+        int channel = 1;
+
+        std::string channel_str = req.GetQuery("channel");
+        if (!channel_str.empty()) {
+            try {
+                channel = std::stoi(channel_str);
+                if (channel < 1) channel = 1;
+                if (channel > 6) channel = 6;
+            } catch (...) {}
+        }
+
+        // 也尝试从body解析JSON
+        if (device.empty() && !req.body.empty()) {
+            size_t dpos = req.body.find("\"device\":");
+            if (dpos != std::string::npos) {
+                size_t q1 = req.body.find("\"", dpos + 8);
+                if (q1 != std::string::npos) {
+                    size_t q2 = req.body.find("\"", q1 + 1);
+                    if (q2 != std::string::npos) {
+                        device = req.body.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+            size_t cpos = req.body.find("\"channel\":");
+            if (cpos != std::string::npos) {
+                size_t digit_start = req.body.find_first_of("0123456789", cpos + 9);
+                if (digit_start != std::string::npos) {
+                    size_t digit_end = req.body.find_first_not_of("0123456789", digit_start);
+                    if (digit_end == std::string::npos) digit_end = req.body.size();
+                    try {
+                        channel = std::stoi(req.body.substr(digit_start, digit_end - digit_start));
+                    } catch (...) {}
+                }
+            }
+        }
+
+        if (device.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"missing device\"}");
+            return;
+        }
+
+        // 查找本地连接
+        auto* conn_ctx = find_connection_by_device_id(device);
+
+        if (!conn_ctx) {
+            // Redis查找分布式节点
+            if (auto* redis = ServerApp::getInstance().GetRedisClient()) {
+                std::string key = "device:online:" + device;
+                std::string val = redis->Get(key);
+                if (!val.empty()) {
+                    std::string target_ip;
+                    int target_port = 0;
+
+                    size_t pos_port = val.find("\"http_port\":");
+                    if (pos_port != std::string::npos) {
+                        size_t digit_start = val.find_first_of("0123456789", pos_port + 12);
+                        if (digit_start != std::string::npos) {
+                            size_t digit_end = val.find_first_not_of("0123456789", digit_start);
+                            if (digit_end == std::string::npos) digit_end = val.length();
+                            try {
+                                target_port = std::stoi(val.substr(digit_start, digit_end - digit_start));
+                            } catch (...) {}
+                        }
+                    }
+
+                    size_t pos_ip = val.find("\"ip\":\"");
+                    if (pos_ip != std::string::npos) {
+                        size_t start = pos_ip + 6;
+                        size_t end = val.find("\"", start);
+                        if (end != std::string::npos) {
+                            target_ip = val.substr(start, end - start);
+                        }
+                    }
+
+                    bool is_local = (target_ip == ServerApp::getInstance().GetLocalIp() ||
+                                     target_ip == "127.0.0.1" || target_ip == "localhost") &&
+                                    (target_port == ServerApp::getInstance().GetHttpPort());
+
+                    if (target_port > 0 && !target_ip.empty() && !is_local) {
+                        // 需要代理转发 - 这里简化处理，返回错误
+                        // 实际应该使用HTTP Client转发
+                        res.SetStatus(502, "Bad Gateway");
+                        res.SetJson("{\"ok\":false,\"error\":\"device on another node, proxy not implemented yet\"}");
+                        return;
+                    }
+                }
+            }
+
+            res.SetStatus(404, "Not Found");
+            res.SetJson("{\"ok\":false,\"error\":\"device not connected or not registered locally\"}");
+            return;
+        }
+
+        bool success = send_b341_to_fd(conn_ctx->connfd, channel);
+
+        if (!success) {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetJson("{\"ok\":false,\"error\":\"failed to send B341 command\"}");
+            return;
+        }
+
+        res.SetJson("{\"ok\":true,\"message\":\"B341 command sent successfully\",\"device\":\"" +
+                    device + "\",\"channel\":" + std::to_string(channel) + "}");
+    });
+
+    // POST /api/send_b341_by_fd
+    server->Post("/api/send_b341_by_fd", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        int fd = -1;
+        int channel = 1;
+
+        // 解析fd
+        if (!req.body.empty()) {
+            size_t pos = req.body.find("\"fd\"");
+            if (pos != std::string::npos) {
+                size_t colon = req.body.find(':', pos);
+                if (colon != std::string::npos) {
+                    size_t q1 = req.body.find_first_of("0123456789", colon);
+                    if (q1 != std::string::npos) {
+                        size_t q2 = req.body.find_first_not_of("0123456789", q1);
+                        std::string fd_str = req.body.substr(q1, q2 - q1);
+                        fd = std::stoi(fd_str);
+                    }
+                }
+            }
+
+            size_t cpos = req.body.find("\"channel\":");
+            if (cpos != std::string::npos) {
+                size_t digit_start = req.body.find_first_of("0123456789", cpos + 9);
+                if (digit_start != std::string::npos) {
+                    size_t digit_end = req.body.find_first_not_of("0123456789", digit_start);
+                    if (digit_end == std::string::npos) digit_end = req.body.size();
+                    try {
+                        channel = std::stoi(req.body.substr(digit_start, digit_end - digit_start));
+                    } catch (...) {}
+                }
+            }
+        }
+
+        if (fd < 0) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"missing fd\"}");
+            return;
+        }
+
+        bool success = send_b341_to_fd(fd, channel);
+
+        if (success) {
+            res.SetJson("{\"ok\":true,\"fd\":" + std::to_string(fd) + ",\"channel\":" + std::to_string(channel) + "}");
+        } else {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetJson("{\"ok\":false,\"error\":\"send failed\"}");
+        }
+    });
+
+    // POST /api/upload_model
+    server->Post("/api/upload_model", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string device = req.GetQuery("device");
+
+        if (device.empty() && !req.body.empty()) {
+            size_t dpos = req.body.find("\"device\":");
+            if (dpos != std::string::npos) {
+                size_t q1 = req.body.find("\"", dpos + 8);
+                if (q1 != std::string::npos) {
+                    size_t q2 = req.body.find("\"", q1 + 1);
+                    if (q2 != std::string::npos) {
+                        device = req.body.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+        }
+
+        if (device.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"missing device\"}");
+            return;
+        }
+
+        auto* conn_ctx = find_connection_by_device_id(device);
+        if (!conn_ctx) {
+            res.SetStatus(404, "Not Found");
+            res.SetJson("{\"ok\":false,\"error\":\"device not found\"}");
+            return;
+        }
+
+        // 简单实现：返回成功
+        res.SetJson("{\"ok\":true,\"message\":\"model upload not fully implemented\"}");
+    });
+
+    // POST /api/test_capture_after_upgrade
+    server->Post("/api/test_capture_after_upgrade", [](const gw::HttpRequest& req, gw::HttpResponse& res) {
+        std::string device = req.GetQuery("device");
+
+        if (device.empty() && !req.body.empty()) {
+            size_t dpos = req.body.find("\"device\":");
+            if (dpos != std::string::npos) {
+                size_t q1 = req.body.find("\"", dpos + 8);
+                if (q1 != std::string::npos) {
+                    size_t q2 = req.body.find("\"", q1 + 1);
+                    if (q2 != std::string::npos) {
+                        device = req.body.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+        }
+
+        if (device.empty()) {
+            res.SetStatus(400, "Bad Request");
+            res.SetJson("{\"ok\":false,\"error\":\"missing device\"}");
+            return;
+        }
+
+        auto* conn_ctx = find_connection_by_device_id(device);
+        if (!conn_ctx) {
+            res.SetStatus(404, "Not Found");
+            res.SetJson("{\"ok\":false,\"error\":\"device not found\"}");
+            return;
+        }
+
+        // 发送测试捕获命令 (使用SendModelToDevice)
+        std::string test_image_path = get_upload_dir() + "/test_image.jpg";
+        struct stat buffer;
+        if (stat(test_image_path.c_str(), &buffer) != 0) {
+            test_image_path = get_upload_dir() + "/default.jpg";
+            if (stat(test_image_path.c_str(), &buffer) != 0) {
+                res.SetStatus(404, "Not Found");
+                res.SetJson("{\"ok\":false,\"error\":\"test image not found\"}");
+                return;
+            }
+        }
+
+        int ret = SendModelToDevice(test_image_path.c_str(), 1, conn_ctx->connfd);
+
+        if (ret == 0) {
+            res.SetJson("{\"ok\":true,\"device\":\"" + device + "\"}");
+        } else {
+            res.SetStatus(500, "Internal Server Error");
+            res.SetJson("{\"ok\":false,\"error\":\"send failed\"}");
+        }
+    });
+
+    std::cout << "[HTTP] Routes registered for new HttpServer" << std::endl;
 }

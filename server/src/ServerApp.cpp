@@ -1,5 +1,6 @@
 #include "../inc/ServerApp.h"
 #include "../inc/http_server.h"
+#include "../inc/HttpServer.h"
 #include <iostream>
 #include <unistd.h>
 #include <cstring>
@@ -100,11 +101,27 @@ void ServerApp::run() {
 
     initializeSocket();
 
-    // Start HTTP server in a separate thread
+#if USE_NEW_HTTP_SERVER
+    // 使用新的HttpServer (基于epoll，性能更高)
+    std::thread httpThread([this]() {
+        gw::HttpServer httpServer(&eventLoop, httpPort);
+
+        std::cout << "[HTTP] Initializing new HttpServer (epoll-based)..." << std::endl;
+
+        // 初始化路由
+        init_new_http_server(&httpServer);
+
+        // 启动服务
+        httpServer.Start();
+    });
+    httpThread.detach();
+#else
+    // 使用原来的httplib
     std::thread httpThread([this](){
         start_http_server(this->httpPort);
     });
     httpThread.detach();
+#endif
 
     // Start Event Loop (blocks main thread effectively)
     eventLoop.Run();

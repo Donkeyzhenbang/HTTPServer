@@ -48,6 +48,7 @@ include_directories(
 set(SERVER_CORE_SOURCES
     src/ServerApp.cpp
     src/http_server.cpp
+    src/HttpServer.cpp
     src/modelupgrade.cpp
     src/recvfile.cpp
     src/ZkClient.cpp

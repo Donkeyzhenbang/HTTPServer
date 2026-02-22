@@ -11,6 +11,10 @@
 #include "../../base/inc/threadpool.h"
 #include "ZkClient.h"
 #include "RedisClient.h"
+#include "HttpServer.h"
+
+// 编译选项：使用新的HttpServer (1=启用, 0=使用httplib)
+#define USE_NEW_HTTP_SERVER 0
 
 class ServerApp {
 public:
