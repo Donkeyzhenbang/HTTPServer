@@ -5,7 +5,7 @@ REDIS_HOST="127.0.0.1:6379"
 ZK_HOST="127.0.0.1:2181"
 LOCAL_IP="127.0.0.1"
 
-ROOT_DIR=$(pwd)
+ROOT_DIR=$(pwd)/../../
 SERVER_BIN="$ROOT_DIR/server/bin/httpserver"
 CLIENT_BIN="$ROOT_DIR/client/bin/ImageSend"
 LOG_DIR="$ROOT_DIR/logs"
