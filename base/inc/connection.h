@@ -64,6 +64,7 @@ struct ConnectionContext {
     // Reactor Buffer
     std::vector<uint8_t> inputBuffer;
     std::mutex bufferMutex;
+    std::mutex sendMutex;  // Mutex for thread-safe sending on this socket
     std::atomic<bool> is_processing;       // Is a worker thread currently processing this context?
 
     ConnectionContext(int fd) : connfd(fd), is_connection_alive(true), is_processing_done(false), is_processing(false) {

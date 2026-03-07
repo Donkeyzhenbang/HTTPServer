@@ -124,11 +124,12 @@ void ProtocolB38FrameInit(struct ProtocolB38 &frameData) {
 }
 
 // Helper for Reliable Send on Non-Blocking Sockets
+// Note: This function is NOT thread-safe. Use SafeSendLocked for thread-safe sending.
 static int SafeSend(int socket, const void* buffer, size_t length) {
     const uint8_t* ptr = (const uint8_t*)buffer;
     size_t remaining = length;
     int retry_count = 0;
-    
+
     while (remaining > 0) {
         ssize_t sent = send(socket, ptr, remaining, MSG_NOSIGNAL);
         if (sent < 0) {
@@ -153,6 +154,21 @@ static int SafeSend(int socket, const void* buffer, size_t length) {
     return length;
 }
 
+// Thread-safe send: acquires lock before sending
+// Returns: -1 on error, 0 if connection not found (safe to ignore), positive on success
+static int SafeSendLocked(int socket, const void* buffer, size_t length) {
+    // Try to find the connection context
+    ConnectionContext* ctx = find_connection_by_fd(socket);
+    if (ctx) {
+        // Acquire the send mutex to prevent concurrent sends on the same socket
+        std::lock_guard<std::mutex> lock(ctx->sendMutex);
+        return SafeSend(socket, buffer, length);
+    } else {
+        // Fallback: no context found, send without lock (shouldn't happen in normal operation)
+        return SafeSend(socket, buffer, length);
+    }
+}
+
 // ----------------------------------------------------------------------------
 // Send Implementations
 // ----------------------------------------------------------------------------
@@ -160,25 +176,25 @@ static int SafeSend(int socket, const void* buffer, size_t length) {
 int SendProtocolB341(int socket, int channelNo) {
     ProtocolB341 frameData;
     ProtocolB341FrameInit(frameData, channelNo);
-    return SafeSend(socket, &frameData, sizeof(frameData));
+    return SafeSendLocked(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB342(int socket) {
     ProtocolB342 frameData;
     ProtocolB342FrameInit(frameData);
-    return SafeSend(socket, &frameData, sizeof(frameData));
+    return SafeSendLocked(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB351(int socket, u_int8 channelNo, u_int16 packetLen) {
     ProtocolB351 frameData;
     ProtocolB351FrameInit(frameData, channelNo, packetLen);
-    return SafeSend(socket, &frameData, sizeof(frameData));
+    return SafeSendLocked(socket, &frameData, sizeof(frameData));
 }
 
 int SendProtocolB352(int socket) {
     ProtocolB352 frameData;
     ProtocolB352FrameInit(frameData);
-    int ret = SafeSend(socket, &frameData, sizeof(frameData));
+    int ret = SafeSendLocked(socket, &frameData, sizeof(frameData));
     if(ret > 0) std::cout << "已发送B352" << std::endl;
     else std::cerr << "发送B352失败" << std::endl;
     return ret;
@@ -187,7 +203,7 @@ int SendProtocolB352(int socket) {
 int SendProtocolB37(int socket, unsigned char* pBuffer, int Length, u_int8 channelNo) {
     ProtocolB37 frameData;
     ProtocolB37FrameInit(frameData, pBuffer, Length, channelNo);
-    int ret = SafeSend(socket, &frameData, sizeof(frameData));
+    int ret = SafeSendLocked(socket, &frameData, sizeof(frameData));
     if(ret > 0) std::cout << "发送B37结束" << std::endl;
     return ret;
 }
@@ -195,7 +211,7 @@ int SendProtocolB37(int socket, unsigned char* pBuffer, int Length, u_int8 chann
 int SendProtocolB38(int socket) {
     ProtocolB38 frameData;
     ProtocolB38FrameInit(frameData);
-    return SafeSend(socket, &frameData, sizeof(frameData));
+    return SafeSendLocked(socket, &frameData, sizeof(frameData));
 }
 
 
@@ -256,11 +272,11 @@ int SendProtocolB313(int socket, const std::vector<ProtocolAlarmInfo>& alarms) {
     int size = 0;
     ProtocolB313Construct(alarms, &buffer, &size);
     if (!buffer) return -1;
-    
-    int ret = send(socket, buffer, size, MSG_NOSIGNAL);
+
+    int ret = SafeSendLocked(socket, buffer, size);
     if(ret > 0) printf("发送B313图像分析帧\n");
     else perror("SendB313 failed");
-    
+
     free(buffer);
     return ret;
 }
@@ -268,25 +284,32 @@ int SendProtocolB313(int socket, const std::vector<ProtocolAlarmInfo>& alarms) {
 int SendPhotoData(int SocketFd, unsigned char* pBuffer, int Length, int channelNo) {
     ProtocolPhotoData PhotoDataPacket;
     memset(&PhotoDataPacket, 0, sizeof(PhotoDataPacket));
-    
+
     // Set Sync Word
     PhotoDataPacket.sync = 0x5AA5;
-    
+
     memcpy(PhotoDataPacket.cmdId, CMD_ID_DEFAULT, 17);
     PhotoDataPacket.frameType = 0x05;
     PhotoDataPacket.packetType = 0xF0;
     PhotoDataPacket.channelNo = channelNo;
     PhotoDataPacket.packetNo = Length / 1024 + 1;
-    
+
     int PacketNums = PhotoDataPacket.packetNo;
     int tailPacketDataLength = Length % 1024;
-    
+
+    // Acquire send lock for thread-safe sending
+    ConnectionContext* ctx = find_connection_by_fd(SocketFd);
+    std::unique_lock<std::mutex> sendLock;
+    if (ctx) {
+        sendLock = std::unique_lock<std::mutex>(ctx->sendMutex);
+    }
+
     for(int i=0; i <PacketNums; i++) {
         PhotoDataPacket.frameNo = i;
         PhotoDataPacket.subpacketNo = i;
-        PhotoDataPacket.prefix_sample[0] = 3; 
-        PhotoDataPacket.prefix_sample[1] = 1024 * i; 
-        
+        PhotoDataPacket.prefix_sample[0] = 3;
+        PhotoDataPacket.prefix_sample[1] = 1024 * i;
+
         int write_len = 0;
         if(i != PacketNums-1) {
             write_len = sizeof(PhotoDataPacket);
@@ -295,25 +318,25 @@ int SendPhotoData(int SocketFd, unsigned char* pBuffer, int Length, int channelN
             packet_crc_cal(&PhotoDataPacket);
             PhotoDataPacket.End = 0x96;
         } else {
-             write_len = tailPacketDataLength + 40; 
+             write_len = tailPacketDataLength + 40;
              PhotoDataPacket.packetLength = tailPacketDataLength + 40;
              memset(PhotoDataPacket.sample, 0, 1024); // clear
              memcpy(PhotoDataPacket.sample, pBuffer + i*1024, tailPacketDataLength);
-             
+
              u_int16_t c = GetCheckCRC16((unsigned char *)(&PhotoDataPacket.packetLength), PhotoDataPacket.packetLength - 5);
-             
+
              unsigned char* raw = (unsigned char*)&PhotoDataPacket;
              raw[write_len-3] = c & 0xFF;
              raw[write_len-2] = (c >> 8) & 0xFF;
              raw[write_len-1] = 0x96;
         }
-        
+
         ssize_t ret = send(SocketFd, &PhotoDataPacket, write_len, MSG_NOSIGNAL);
         if(ret < 0) {
             perror("send error");
             return -1;
         }
-        usleep(1000); 
+        usleep(1000);
     }
     printf("Length : %d, PacketNums: %d, tailPacketDataLength: %d \n",Length, PacketNums, tailPacketDataLength);
     return 0;

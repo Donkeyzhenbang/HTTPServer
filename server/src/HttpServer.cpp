@@ -128,6 +128,7 @@ void HttpServer::HandleAccept() {
         // 注册到EventLoop
         event_loop_->AddSocket(connfd, EPOLLIN | EPOLLRDHUP | EPOLLET,
             [this, connfd](int fd) {
+                std::lock_guard<std::mutex> lock(connections_mutex_);
                 auto it = connections_.find(fd);
                 if (it != connections_.end()) {
                     if (it->second->is_writing) {
@@ -138,7 +139,10 @@ void HttpServer::HandleAccept() {
                 }
             });
 
-        connections_[connfd] = ctx;
+        {
+            std::lock_guard<std::mutex> lock(connections_mutex_);
+            connections_[connfd] = ctx;
+        }
 
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
@@ -147,12 +151,15 @@ void HttpServer::HandleAccept() {
 }
 
 void HttpServer::HandleRead(int fd) {
-    auto it = connections_.find(fd);
-    if (it == connections_.end()) {
-        return;
+    std::shared_ptr<HttpConnectionContext> ctx;
+    {
+        std::lock_guard<std::mutex> lock(connections_mutex_);
+        auto it = connections_.find(fd);
+        if (it == connections_.end()) {
+            return;
+        }
+        ctx = it->second;
     }
-
-    auto ctx = it->second;
 
     // 读取数据
     char buf[8192];
@@ -167,67 +174,87 @@ void HttpServer::HandleRead(int fd) {
         return;
     }
 
-    // 追加到读取缓冲区
-    ctx->read_buffer.append(buf, n);
+    // 追加到读取缓冲区 (需要加锁)
+    {
+        std::lock_guard<std::mutex> lock(ctx->buffer_mutex);
+        ctx->read_buffer.append(buf, n);
 
-    // 解析HTTP请求
-    if (ctx->parser.parse(ctx->read_buffer.data(), ctx->read_buffer.size())) {
-        // 解析完成
-        ctx->request = ctx->parser.request();
+        // 解析HTTP请求
+        if (ctx->parser.parse(ctx->read_buffer.data(), ctx->read_buffer.size())) {
+            // 解析完成
+            ctx->request = ctx->parser.request();
+            // 清空缓冲区
+            ctx->read_buffer.clear();
+        } else if (ctx->parser.is_error()) {
+            // 解析错误
+            ctx->response.SetStatus(400, "Bad Request");
+            ctx->response.SetText("400 Bad Request");
+            SendResponse(ctx);
+            return;
+        }
+    }
 
-        // 检查Connection头
+    // 检查Connection头 (不需要锁，因为已经复制了request)
+    if (!ctx->request.uri.empty()) {
         std::string conn = ctx->request.GetHeader("Connection");
         ctx->keep_alive = (conn == "keep-alive" || conn == "Keep-Alive");
-
         // 处理请求
         ProcessRequest(ctx);
-    } else if (ctx->parser.is_error()) {
-        // 解析错误
-        ctx->response.SetStatus(400, "Bad Request");
-        ctx->response.SetText("400 Bad Request");
-        SendResponse(ctx);
     }
 }
 
 void HttpServer::HandleWrite(int fd) {
-    auto it = connections_.find(fd);
-    if (it == connections_.end()) {
-        return;
-    }
-
-    auto ctx = it->second;
-
-    if (ctx->write_buffer.empty()) {
-        ctx->is_writing = false;
-        return;
-    }
-
-    ssize_t n = write(fd, ctx->write_buffer.data(), ctx->write_buffer.size());
-
-    if (n < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return;  // 稍后重试
+    std::shared_ptr<HttpConnectionContext> ctx;
+    {
+        std::lock_guard<std::mutex> lock(connections_mutex_);
+        auto it = connections_.find(fd);
+        if (it == connections_.end()) {
+            return;
         }
-        HandleClose(fd);
-        return;
+        ctx = it->second;
     }
 
-    ctx->write_buffer.erase(0, n);
+    std::string data_to_send;
+    bool should_close = false;
+    bool should_reset = false;
 
-    if (ctx->write_buffer.empty()) {
-        ctx->is_writing = false;
-        // 检查是否保持连接
-        if (!ctx->keep_alive) {
+    {
+        std::lock_guard<std::mutex> lock(ctx->buffer_mutex);
+
+        if (ctx->write_buffer.empty()) {
+            ctx->is_writing = false;
+            return;
+        }
+
+        ssize_t n = write(fd, ctx->write_buffer.data(), ctx->write_buffer.size());
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;  // 稍后重试
+            }
             HandleClose(fd);
-        } else {
-            // 重置parser，准备下一个请求
-            ctx->parser.reset();
-            ctx->request = HttpRequest();
+            return;
         }
+
+        ctx->write_buffer.erase(0, n);
+
+        if (ctx->write_buffer.empty()) {
+            ctx->is_writing = false;
+            should_close = !ctx->keep_alive;
+            should_reset = ctx->keep_alive;
+        }
+    }
+
+    if (should_close) {
+        HandleClose(fd);
+    } else if (should_reset) {
+        ctx->parser.reset();
+        ctx->request = HttpRequest();
     }
 }
 
 void HttpServer::HandleClose(int fd) {
+    std::lock_guard<std::mutex> lock(connections_mutex_);
     auto it = connections_.find(fd);
     if (it != connections_.end()) {
         event_loop_->RemoveSocket(fd);
@@ -287,34 +314,43 @@ void HttpServer::SendResponse(std::shared_ptr<HttpConnectionContext> ctx) {
     }
 
     // 序列化响应
-    ctx->write_buffer = ctx->response.ToString();
+    std::string response_data = ctx->response.ToString();
 
-    // 发送
-    ssize_t n = write(ctx->fd, ctx->write_buffer.data(), ctx->write_buffer.size());
+    bool should_close = false;
+    bool should_reset = false;
 
-    if (n < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            ctx->is_writing = true;
-            // 更新epoll关注写事件
+    // 写入缓冲区并发送 (需要加锁)
+    {
+        std::lock_guard<std::mutex> lock(ctx->buffer_mutex);
+        ctx->write_buffer = response_data;
+
+        // 发送
+        ssize_t n = write(ctx->fd, ctx->write_buffer.data(), ctx->write_buffer.size());
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                ctx->is_writing = true;
+                return;
+            }
+            HandleClose(ctx->fd);
             return;
         }
-        HandleClose(ctx->fd);
-        return;
+
+        ctx->write_buffer.erase(0, n);
+
+        if (!ctx->write_buffer.empty()) {
+            ctx->is_writing = true;
+        } else {
+            should_close = !ctx->keep_alive;
+            should_reset = ctx->keep_alive;
+        }
     }
 
-    ctx->write_buffer.erase(0, n);
-
-    if (!ctx->write_buffer.empty()) {
-        ctx->is_writing = true;
-    } else {
-        // 发送完成，检查是否保持连接
-        if (!ctx->keep_alive) {
-            HandleClose(ctx->fd);
-        } else {
-            // 重置，准备下一个请求
-            ctx->parser.reset();
-            ctx->request = HttpRequest();
-        }
+    if (should_close) {
+        HandleClose(ctx->fd);
+    } else if (should_reset) {
+        ctx->parser.reset();
+        ctx->request = HttpRequest();
     }
 }
 

@@ -101,4 +101,13 @@ target_include_directories(run_perf_tests PRIVATE
 )
 target_link_libraries(run_perf_tests PRIVATE server_core base GTest::gtest_main pthread)
 
+# --- Concurrency Tests ---
+add_executable(run_concurrency_tests
+    test_concurrency.cpp
+)
+target_include_directories(run_concurrency_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../base/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../server/inc
+)
+target_link_libraries(run_concurrency_tests PRIVATE server_core base GTest::gtest_main pthread)
 

@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <mutex>
 
 namespace gw {
 
@@ -22,6 +23,9 @@ public:
     std::string write_buffer;
     bool keep_alive = false;
     bool is_writing = false;
+
+    // 缓冲区读写锁
+    std::mutex buffer_mutex;
 
     // 请求和响应
     HttpRequest request;
@@ -97,6 +101,7 @@ private:
 
     // 连接管理
     std::unordered_map<int, std::shared_ptr<HttpConnectionContext>> connections_;
+    std::mutex connections_mutex_;  // 保护connections_的互斥锁
 
     // 解析URI并查找处理器
     HttpHandler FindHandler(const HttpRequest& req);
