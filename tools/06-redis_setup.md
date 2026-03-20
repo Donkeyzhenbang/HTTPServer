@@ -422,3 +422,19 @@ netstat -tulnp | grep 6379
       → 触发OnClientRead → CloseConnection
           → 删除本地连接上下文
           → 删除Redis记录(device:online:XXX)
+
+## 7. 分布式节点查询与客户端连接断开修复
+
+在此次测试中，遇到并修复了两个关键的多节点/连接状态反馈问题：
+
+### 7.1 Node B 无法看到 Node A 上的设备
+**原因分析：**
+在分布式部署下，Node A 和 Node B 是独立启动的网关服务器。默认情况下，如果不指定 Redis 地址参数，每一台服务器可能会连上本地的 Redis 实例（即未配置 `-r` 参数），而不是同一个中心化 Redis。导致虽然 Node A 的设备注册到了 Redis，Node B 由于连的是自己的 Local Redis（或没传正确地址），所以查不到。
+**解决方案：**
+启动 Node B 时，必须通过 `-r <Redis_IP>:<Port>` 显式指定中心化 Redis 的连接地址。这样 Node B 前端拉取设备列表时，就会直接去所有节点共享的这个 Redis 实例里寻找键为 `device:online:*` 的数据。
+
+### 7.2 服务端终止后，客户端未及时断开
+**原因分析：**
+客户端 `ClientApp.cpp` 中的 `epoll_wait` 没有正确地监听和处理服务端进程被 Kill（`EPOLLRDHUP`, `EPOLLHUP`, `EPOLLERR`）等异常断开的事件。不仅如此，在客户端的 `EventLoop` 中可能只关注了 `EPOLLIN` 却没有对 TCP 的 RST 被动关闭做优雅处理，导致客户端陷入死等状态，认为连接依然存在。
+**解决方案：**
+在客户端（及服务端）的 Reactor 检测逻辑中（如 `ClientApp::Run()` / `EventLoop` 等相关处），加入对系统中断或对方挂断 socket 的处理：当检测到对端断开，立即打出日志并清理该 fd，调用相应的 `close(fd)` 并重置连接状态。

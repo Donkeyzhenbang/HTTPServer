@@ -9,6 +9,16 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <chrono>
+#include <sys/utsname.h>
+
+// 获取当前系统架构
+static std::string get_architecture() {
+    struct utsname buffer;
+    if (uname(&buffer) != 0) {
+        return "unknown";
+    }
+    return std::string(buffer.machine);
+}
 
 // Helper wrapper for measuring time (moved from main) -> Now using utils
 // static void measure_time_func... removed
@@ -192,25 +202,36 @@ void ClientApp::simulateModelUpgrade() {
     std::string command;
     bool shouldExecute = false;
     Config& config = Config::getInstance();
+    
+    std::string arch = get_architecture();
+    std::cout << "检测到系统架构: " << arch << std::endl;
+
+    // 区分 PC (x86_64) 和 Jetson Orin Nano (aarch64) 的脚本路径前缀
+    std::string script_prefix = (arch == "aarch64") ? "jetson_" : "pc_";
 
     if(model_script_channel == 11) {
         std::string engine_file = config.getString("environment.exposure_engine_file", "../resource/engines/model_CRM_V1_2048x2448.engine");
         std::string target_dir = config.getString("environment.exposure_engine_target_dir", "../../tools");
-        std::string update_script = config.getString("environment.scripts.exposure_update_model", "../scripts/exposure_update_model.sh");
-        command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+        // 使用带有架构前缀的脚本
+        std::string update_script = config.getString("environment.scripts.exposure_update_model", "../scripts/" + script_prefix + "exposure_update_model.sh");
+        command = "bash " + update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
         shouldExecute = true;
     } else if(model_script_channel == 22) {
         std::string engine_file = config.getString("environment.semantic_engine_file", "../resource/engines/model_default.engine");
         std::string target_dir = config.getString("environment.semantic_engine_target_dir", "../../tools");
-        std::string update_script = config.getString("environment.scripts.semantic_update_model", "../scripts/semantic_update_model.sh");
-        command = update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
+        std::string update_script = config.getString("environment.scripts.semantic_update_model", "../scripts/" + script_prefix + "semantic_update_model.sh");
+        command = "bash " + update_script + " \"" + engine_file + "\" \"" + target_dir + "\"";
         shouldExecute = true;
     }
 
     if(shouldExecute) {
-        std::cout << "执行命令: " << command << std::endl;
+        std::cout << "准备执行升级命令: " << command << std::endl;
         int status = system(command.c_str());
-        (void)status; // Suppress unused warning
+        if (status != 0) {
+            std::cerr << "脚本执行失败, 返回状态码: " << status << std::endl;
+        } else {
+            std::cout << "脚本执行成功！" << std::endl;
+        }
     } else {
         std::cerr << "未知的模型升级通道: " << model_script_channel << std::endl;
     }

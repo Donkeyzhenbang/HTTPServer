@@ -157,7 +157,7 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& mode
                 ProtocolPhotoData *pPhotoPacket = (ProtocolPhotoData *)pPacket->packetBuffer;
                 u_int16 subpacketNo = pPhotoPacket->subpacketNo;
                 
-                int dataLen = pPacket->packetLength - 33; 
+                int dataLen = pPacket->packetLength - 40; 
                 if (dataLen > 0 && dataLen <= 1024) {
                      memcpy(pPhotoBuffer+subpacketNo*1024, pPhotoPacket->sample, dataLen);
                      PhotoFileSize += dataLen;
@@ -194,10 +194,10 @@ static int RecvFileHandler(unsigned char* pBuffer, int Length, int fd, int& mode
 
 void recv_model(int connfd, int& model_script_channel) {
     ConnectionContext* context = create_connection_context(connfd);
-    printf("新客户端线程启动...\n");
+    printf("新客户端模型接收进程启动...\n");
     mv_sleep(200);
     StartReadThread(context);   
-    while (1) {
+    while (context->is_connection_alive) {
         Packet_t* pPacket = new Packet_t; 
         MyQueue* pQueue = get_connection_queue(connfd);
         if (!pQueue) {
@@ -206,21 +206,29 @@ void recv_model(int connfd, int& model_script_channel) {
             break;
         }
         int ret = run_protocol_resolver(connfd, pPacket, pQueue, &context->is_connection_alive);
-        printf("返回值%d\n", ret);
+        // printf("返回值%d\n", ret); // Optional, commented out to reduce noise
         if (-1 == ret) {
-            close(connfd);
             delete pPacket;
-            printf("客户端断开连接...\n");
-            printf("客户端线程结束...\n");
-            remove_connection_context(connfd);
-            pthread_exit(NULL);
+            printf("客户端连接断开或解析错误，停止接收...\n");
+            break;
         }
 
         ClientFrameResolver(pPacket->packetBuffer, pPacket->packetLength, connfd, model_script_channel);
         delete pPacket;
+
+        // 如果 model_script_channel 已经被赋值，说明已经成功接收完了整个文件的分包循环
+        if (model_script_channel != 0) {
+            printf("模型文件接收循环已执行完毕，退出接收状态\n");
+            break;
+        }
     }
+
+    // 优雅退出读线程
+    if (context) {
+        context->is_connection_alive = false;
+    }
+    
+    mv_sleep(100); // 稍微等待 read_thread 退出
     remove_connection_context(connfd);
-    close(connfd);
-    printf("客户端线程结束...\n");
-    pthread_exit(NULL);
+    printf("模型接收系统退出，回归主流程...\n");
 }

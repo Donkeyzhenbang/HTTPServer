@@ -5,6 +5,7 @@
 #include "sendfile.h"
 #include "modelupgrade.h"
 #include "../inc/ServerApp.h" // Access Redis
+#include "../inc/recvfile.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -901,11 +902,19 @@ void start_http_server(int port) {
                 
                 // 调用自动抓拍函数，使用通道1
                 std::cout << "[HTTP] 开始模型升级后抓拍测试" << std::endl;
-                // int ret = SendModelToDevice(test_image_path.c_str(), 1, conn_ctx->connfd);
+                
+                // 解决与Reactor线程抢占读事件的问题：暂停Reactor对该socket的接管
+                ServerApp::getInstance().getEventLoop().RemoveSocket(conn_ctx->connfd);
+                
                 int ret = SendModelToDevice(temp_model_path.c_str(), modelType, conn_ctx->connfd);
                 
+                // 恢复Reactor的接管
+                ServerApp::getInstance().getEventLoop().AddSocket(conn_ctx->connfd, EPOLLIN | EPOLLET | EPOLLRDHUP, [](int fd){
+                    OnClientRead(fd);
+                });
+                
                 if (ret == 0) {
-                    res.set_content(R"({"ok":true,"message":"模型文件上传成功，抓拍测试完成"})", "application/json");
+                    res.set_content(R"({"ok":true,"message":"模型文件上传成功，模型升级完成"})", "application/json");
                 } else {
                     res.set_content(R"({"ok":true,"message":"模型文件上传成功，但抓拍测试失败"})", "application/json");
                 }
