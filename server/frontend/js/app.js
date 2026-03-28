@@ -909,3 +909,135 @@ function showNotification(message, type='info'){
 }
 
 window.addEventListener('beforeunload', () => { if (refreshInterval) clearInterval(refreshInterval); });
+
+
+
+// ---------------- 推理弹窗相关 ----------------
+const inferModalOpenBtn = document.getElementById('inferModalOpenBtn');
+const inferModal = document.getElementById('inferModal');
+const inferModalClose = document.getElementById('inferModalClose');
+const cancelInfer = document.getElementById('cancelInferModal');
+const startInferBtn = document.getElementById('startInferModal');
+const inferPreview = document.getElementById('inferPreview');
+const inferImgLabel = document.getElementById('inferImgLabel');
+const inferLog = document.getElementById('inferLogModal');
+const inferResultImage = document.getElementById('inferResultImage');
+const inferResultLabel = document.getElementById('inferResultLabel');
+const mainImageEl = document.getElementById('mainImage');
+let selectedInferImageBlob = null;
+
+function appendInferLog(msg, type='info') {
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    const timeStr = new Date().toLocaleTimeString();
+    entry.innerText = `[${timeStr}] ${msg}`;
+    if (type === 'error') entry.style.color = '#ff5252';
+    else if (type === 'success') entry.style.color = '#69f0ae';
+    inferLog.appendChild(entry);
+    inferLog.scrollTop = inferLog.scrollHeight;
+}
+
+
+
+if (inferModalOpenBtn) {
+    inferModalOpenBtn.addEventListener('click', () => {
+        inferModal.style.display = 'flex';
+        inferLog.innerHTML = '<div class="log-entry info">准备推送到多模态推理微服务...</div>';
+        selectedInferImageBlob = null;
+        
+        // Reset file input
+        const fileInput = document.getElementById('inferImageFile');
+        if (fileInput) fileInput.value = '';
+        
+        inferPreview.style.display = 'none';
+        inferPreview.removeAttribute('src');
+        inferImgLabel.innerText = "请先选择一张本地图片";
+        inferImgLabel.style.display = 'inline';
+        inferResultImage.style.display = 'none';
+        inferResultImage.removeAttribute('src');
+        inferResultLabel.innerText = "等待执行推理";
+        inferResultLabel.style.display = 'inline';
+    });
+}
+
+// Add File Input changed event to preview
+const inferImageFile = document.getElementById('inferImageFile');
+if (inferImageFile) {
+    inferImageFile.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            selectedInferImageBlob = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                inferPreview.src = evt.target.result;
+                inferPreview.style.display = 'block';
+              inferImgLabel.style.display = 'none';
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+}
+
+function closeInferModal() {
+
+
+    inferModal.style.display = 'none';
+}
+
+if(inferModalClose) inferModalClose.addEventListener('click', closeInferModal);
+if(cancelInfer) cancelInfer.addEventListener('click', closeInferModal);
+
+if (startInferBtn) {
+    startInferBtn.addEventListener('click', async () => {
+        if (!selectedInferImageBlob) {
+            appendInferLog("错误: 当前没有可抓取的图像进行推理", "error");
+            return;
+        }
+
+        const modelType = document.getElementById('inferModelSelectModal').value;
+        const modelName = document.getElementById('inferModelSelectModal').options[document.getElementById('inferModelSelectModal').selectedIndex].text;
+        
+        startInferBtn.disabled = true;
+        startInferBtn.innerText = '推理中...';
+        appendInferLog(`开始启动 ${modelName} 任务...`, 'info');
+        
+        try {
+            let formData = new FormData();
+            formData.append('image', selectedInferImageBlob, 'stream_capture.jpg');
+            formData.append('model', modelType);
+            
+            const inferRes = await fetch('/api/infer', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const dataText = await inferRes.text();
+            
+            if (inferRes.ok) {
+                appendInferLog(`推理微服务返回成功！`, 'success');
+                try {
+                    const resJson = JSON.parse(dataText);
+                    appendInferLog(`耗时 ${resJson.inference_time_ms} ms, 目标数量: ${resJson.detections?.length || 0}`, "info");
+                    if (resJson.image_b64) {
+                        inferResultImage.src = resJson.image_b64;
+                        inferResultImage.style.display = 'block';
+                        inferResultLabel.style.display = 'none';
+                    }
+                } catch(e) {
+                    appendInferLog("JSON 解析结果失败", "error");
+                }
+                showNotification('微服务推理成功！', 'success');
+            } else {
+                appendInferLog(`请求网关失败码: ${inferRes.status}`, 'error');
+                appendInferLog(dataText, 'error');
+                showNotification('推理失败: ' + inferRes.status, 'error');
+            }
+        } catch(err) {
+            appendInferLog("网络异常: " + err.message, "error");
+            showNotification('请求推理接口异常', 'error');
+        } finally {
+            startInferBtn.disabled = false;
+            startInferBtn.innerText = '开始推理';
+        }
+    });
+}
+

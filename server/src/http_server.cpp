@@ -7,6 +7,7 @@
 #include "../inc/ServerApp.h" // Access Redis
 #include "../inc/recvfile.h"
 #include <iostream>
+#include <zmq.hpp>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -20,6 +21,10 @@
 #include <sstream>
 #include <iomanip>
 #include <regex>
+using namespace std;
+
+zmq::context_t g_zmq_ctx(1);
+
 
 
 // 不再需要extern原来的全局变量
@@ -307,6 +312,63 @@ void start_http_server(int port) {
     });
 
     // POST /upload - 修改为支持通道参数
+    // ----- AI Inference Route (Proxy to Microservice) -----
+    svr.Post("/api/infer", [](const httplib::Request &req, httplib::Response &res) {
+        if (!req.form.has_file("image")) {
+            res.status = 400;
+            res.set_content(R"({"ok":false,"error":"no file field 'image'"})", "application/json");
+            return;
+        }
+
+        std::string model_type = "yolo";
+        if (req.has_param("model")) {
+            model_type = req.get_param_value("model", 0);
+        }
+
+        auto file = req.form.get_file("image", 0);
+        
+        // ZeroMQ IPC/Network call to AI Microservice (Port 50055)
+        try {
+            zmq::socket_t zmq_sock(g_zmq_ctx, zmq::socket_type::req);
+            // Set timeout so it doesn't block forever
+            int timeout_ms = 5000;
+            zmq_sock.setsockopt(ZMQ_RCVTIMEO, &timeout_ms, sizeof(timeout_ms));
+            zmq_sock.setsockopt(ZMQ_SNDTIMEO, &timeout_ms, sizeof(timeout_ms));
+            
+            zmq_sock.connect("tcp://127.0.0.1:50055");
+            
+            // Frame 1: JSON metadata
+            std::string meta_json = "{\"model\": \"" + model_type + "\"}";
+            zmq::message_t meta_msg(meta_json.size());
+            memcpy(meta_msg.data(), meta_json.data(), meta_json.size());
+            zmq_sock.send(meta_msg, zmq::send_flags::sndmore);
+            
+            // Frame 2: Image binary content
+            zmq::message_t img_msg(file.content.size());
+            memcpy(img_msg.data(), file.content.data(), file.content.size());
+            zmq_sock.send(img_msg, zmq::send_flags::none);
+            
+            // Wait for response
+            zmq::message_t reply;
+            auto res_size = zmq_sock.recv(reply, zmq::recv_flags::none);
+            
+            if (res_size.has_value()) {
+                std::string reply_str(static_cast<char*>(reply.data()), reply.size());
+                res.set_content(reply_str, "application/json");
+            } else {
+                res.status = 504;
+                res.set_content(R"({"ok":false,"error":"AI Worker timeout"})", "application/json");
+            }
+        } catch (const std::exception& e) {
+            res.status = 500;
+            std::string err = R"({"ok":false,"error":"ZMQ Exception: )";
+            err += e.what();
+            err += R"("})";
+            res.set_content(err, "application/json");
+        }
+    });
+
+    // ----- Original Upload Route -----
     svr.Post("/upload", [](const httplib::Request &req, httplib::Response &res) {
         if (!req.form.has_file("image")) {
             res.status = 400;

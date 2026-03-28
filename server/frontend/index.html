@@ -85,7 +85,7 @@
         <div class="card-title">操作项</div>
         <div class="ops" role="group" aria-label="操作">
           <button id="grabBtn" class="primary" style="padding:10px 12px;">抓图</button>
-          <button id="downloadBtn">下载</button>
+          <button id="inferModalOpenBtn">推理</button>
           <button id="fullBtn">全屏</button>
           <button id="upgradeBtn">升级</button>
         </div>
@@ -148,6 +148,58 @@
       <div class="modal-footer">
         <button id="cancelUpgrade" style="background:transparent;border:1px solid rgba(46, 125, 50, 0.3);color:var(--muted);padding:8px 16px;border-radius:6px;cursor:pointer">取消</button>
         <button id="startUpgrade" style="background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">开始升级</button>
+      </div>
+    </div>
+  </div>
+
+    <div class="modal-overlay" id="inferModal">
+    <div class="modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <span>云端模型推理</span>
+        <button class="modal-close" id="inferModalClose">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="form-group">
+          <label for="inferImageFile">选择待推理图像</label>
+          <input type="file" id="inferImageFile" accept="image/*">
+        </div>
+
+        <div class="form-group">
+          <label for="inferModelSelectModal">选择推理模型</label>
+          <select id="inferModelSelectModal" style="margin-bottom: 5px;">
+            <option value="yolo">YOLO 目标检测</option>
+            <option value="segmentation">语义分割</option>
+            <option value="multi_exposure">多曝光融合</option>
+          </select>
+        </div>
+        
+        <div class="form-group infer-panels">
+            <div class="infer-image-panel">
+              <label style="margin-bottom: 5px; display: block; font-weight: 500; color: var(--accent);">推理前图像</label>
+              <div class="infer-image-box">
+                <img id="inferPreview" class="infer-image" src="" alt="预览图" style="display:none;"/>
+                <span id="inferImgLabel" style="font-size:12px; color:var(--muted)">请先选择一张本地图片</span>
+              </div>
+            </div>
+
+            <div class="infer-image-panel">
+              <label style="margin-bottom: 5px; display: block; font-weight: 500; color: var(--accent);">推理后结果</label>
+              <div class="infer-image-box">
+                <img id="inferResultImage" class="infer-image" src="" alt="结果图" style="display:none;"/>
+                <span id="inferResultLabel" style="font-size:12px; color:var(--muted)">等待执行推理</span>
+              </div>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <div class="log-output" id="inferLogModal" style="height:80px; margin-top: 10px;">
+            <div class="log-entry info">准备就绪，请上传图片。</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelInferModal" style="background:transparent;border:1px solid rgba(46, 125, 50, 0.3);color:var(--muted);padding:8px 16px;border-radius:6px;cursor:pointer">取消</button>
+        <button id="startInferModal" style="background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">开始推理</button>
       </div>
     </div>
   </div>

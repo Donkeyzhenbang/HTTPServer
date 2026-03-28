@@ -39,6 +39,14 @@ else()
     include_directories(/usr/include)
 endif()
 
+find_library(ZMQ_LIB zmq HINTS /usr/lib /usr/local/lib)
+if (ZMQ_LIB)
+    message(STATUS "Found ZeroMQ: ${ZMQ_LIB}")
+    include_directories(/usr/include)
+else()
+    message(WARNING "ZeroMQ not found!")
+endif()
+
 # Explicitly add inc and base/inc
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
@@ -64,6 +72,7 @@ target_link_libraries(server_core
         OpenSSL::Crypto
         ${ZOOKEEPER_LIB}
         ${HIREDIS_LIB}
+        ${ZMQ_LIB}
 )
 
 add_executable(${PROJECT_NAME} src/main.cpp)
@@ -74,6 +83,7 @@ target_link_libraries(${PROJECT_NAME}
         base
         pthread
         OpenSSL::Crypto
+        ${ZMQ_LIB}
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
