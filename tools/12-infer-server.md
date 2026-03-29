@@ -135,11 +135,12 @@
 ### 5.1 已完成
 
 1. **HTTP 推理入口已接通**
-   - 网关新增 `POST /api/infer` 接口，接收 `multipart/form-data`（字段：`image`、`model`）。
+   - 网关新增 `POST /api/infer` 接口，接收 `multipart/form-data`（字段：`image1`、`image2`、`model`）。
 2. **网关到微服务通道已从 HTTP 转为 ZMQ**
    - C++ 网关使用 `cppzmq` 发送 Multipart：
-     - 帧1：JSON 元信息（模型类型等）
-     - 帧2：图片二进制字节
+     - 帧1：JSON 元信息（模型类型、是否有第二张图等）
+     - 帧2：图片1二进制字节
+     - 帧3：图片2二进制字节（可选，用于HDR融合）
    - Python 微服务使用 `zmq.REP` 接收并回包。
 3. **OpenCV 基础处理打通**
    - 微服务可完成：图片解码、模拟画框/分割效果、编码回 JPEG。
@@ -148,17 +149,55 @@
 5. **基础构建依赖已就绪**
    - `server/CMakeLists.txt` 已接入 `libzmq` 链接。
 
-### 5.2 待办（下一阶段）
+### 5.2 本轮更新完成内容（2026-03-28）
 
-1. **真实 GPU 模型接入**
-   - 当前为 OpenCV Mock 处理，尚未接 TensorRT / PyTorch 真模型。
-2. **多卡调度落地**
+#### 5.2.1 Zookeeper 编译修复
+- **问题**：Zookeeper 3.9.0 将同步 API (`zoo_create`、`zoo_get` 等) 放在 `#ifdef THREADED` 条件内
+- **修复**：在 `CMakeLists.txt` 中添加 `target_compile_definitions(server_core PRIVATE THREADED)`
+
+#### 5.2.2 前端多图输入支持
+- **修改文件**：`server/frontend/index.html`、`server/frontend/js/app.js`
+- **功能**：
+  - 添加第二图片上传控件（仅 HDR 融合时显示）
+  - 支持模型选择动态显示/隐藏第二图片上传
+  - 支持三种模型：`yolo`（1张图）、`segmentation`（1张图）、`hdr_fusion`（2张图）
+
+#### 5.2.3 后端多图接收支持
+- **修改文件**：`server/src/http_server.cpp`
+- **功能**：
+  - 支持 `image1` 和 `image2` 两个图片字段
+  - 从 `req.form.get_field("model")` 获取模型类型
+  - ZMQ 发送三帧: metadata + image1 + image2
+  - 超时时间延长至 30s（适应 GPU 推理）
+
+#### 5.2.4 GPU 推理 Worker
+- **新增文件**：`ai-services/hdr_gpu_worker.py`
+- **功能**：
+  - 使用 CUDA GPU 加速（LFM_V1 + CRM_V1 模型）
+  - GPU 预热机制
+  - 支持 HDR 多曝光融合（2张图输入）
+  - ZMQ REP 模式监听 50055 端口
+
+#### 5.2.5 全链路测试验证
+```
+HDR Fusion: Status: success | Model: hdr_fusion_gpu | Time: ~500ms (GPU)
+YOLO:       Status: success | Model: yolo | Time: ~4ms
+Segmentation: Status: success | Model: segmentation | Time: ~8ms
+```
+
+### 5.3 待办（下一阶段）
+
+1. **YOLO 真实模型接入**
+   - 当前 YOLO 使用 OpenCV Mock 处理，需接入真实检测模型。
+2. **语义分割真实模型接入**
+   - 当前使用 OpenCV Mock 处理，需接入真实分割模型。
+3. **多卡调度落地**
    - 尚未落地 `CUDA_VISIBLE_DEVICES` 级别的多进程 worker 编排。
-3. **动态批处理**
+4. **动态批处理**
    - 当前是单请求即时处理，未实现批窗口聚合。
-4. **共享内存零拷贝**
+5. **共享内存零拷贝**
    - 当前网关到微服务仍发送图片字节，未改造为 `shm_open/mmap + ZMQ 信令`。
-5. **生产级可观测性**
+6. **生产级可观测性**
    - 缺少任务级 trace、超时分层统计、失败重试与熔断策略。
 
 ---
@@ -174,6 +213,9 @@
 
 2. **推理请求（推理弹窗）**
    - 路径：前端选择本地图片 -> `POST /api/infer`（multipart，通常不先落盘）。
+   - **多图支持**：
+     - YOLO/语义分割：上传1张图片（`image1`）
+     - HDR融合：上传2张图片（`image1` + `image2`）
    - 网关收到后：
      - 从请求体取图片二进制和模型参数；
      - 通过 **ZMQ Multipart** 发给 Python 微服务（不是 HTTP 转发）。
@@ -181,7 +223,7 @@
 3. **推理结果返回**
    - 微服务处理后返回 JSON：`status/model_used/inference_time_ms/detections/image_b64`。
    - 网关将该 JSON 原样回给前端。
-   - 前端把 `image_b64` 渲染到“推理后结果”框。
+   - 前端把 `image_b64` 渲染到”推理后结果”框。
 
 ### 6.2 文件落盘与传输方式说明
 
@@ -190,17 +232,218 @@
 2. **哪些数据不落盘**
    - `POST /api/infer` 的弹窗推理图片：当前实现走内存字节流，不强制落盘。
 3. **传输协议现状**
-   - 浏览器 -> 网关：**HTTP multipart**。
+   - 浏览器 -> 网关：**HTTP multipart**（字段：`image1`、`image2`、`model`）。
    - 网关 -> 推理微服务：**ZMQ Multipart（二进制）**。
    - 微服务 -> 网关 -> 浏览器：**HTTP JSON**（含 Base64 结果图）。
 
 ### 6.3 工作流程（当前实现）
 
-1. 用户在前端推理弹窗上传本地图像并选择模型。
-2. 浏览器调用 `POST /api/infer`。
-3. C++ 网关解析请求后，通过 ZMQ 将元信息+图片字节发给 Python worker。
-4. Python worker 用 OpenCV 完成基础处理（画框/分割模拟），编码并回传 JSON。
-5. 网关透传 JSON 给前端，前端显示推理后图片与日志。
+1. 用户在前端推理弹窗选择模型类型（YOLO/语义分割/HDR融合）
+2. 根据模型类型上传1张或2张图片
+3. 浏览器调用 `POST /api/infer`。
+4. C++ 网关解析请求后，通过 ZMQ 将元信息+图片字节发给 Python worker。
+5. Python worker 用 GPU 完成 HDR 融合处理（或 OpenCV Mock 处理 YOLO/分割），编码并回传 JSON。
+6. 网关透传 JSON 给前端，前端显示推理后图片与日志。
 
-> 结论：当前推理链路是 **HTTP -> 网关 -> ZMQ -> 微服务 -> 网关 -> HTTP**；
+### 6.4 支持的模型类型
+
+| 模型 | 输入图片数 | 后端实现 | 备注 |
+|------|-----------|---------|------|
+| `yolo` | 1 | OpenCV Mock | 待接入真实检测模型 |
+| `segmentation` | 1 | OpenCV Mock | 待接入真实分割模型 |
+| `hdr_fusion` | 2 | GPU (LFM_V1 + CRM_V1) | 已完成真实模型推理 |
+
+> 结论：当前推理链路是 **HTTP -> 网关 -> ZMQ -> 微服务(GPU) -> 网关 -> HTTP**；
 > `upload` 路径负责持久化图片，`infer` 路径负责在线推理回显。
+
+---
+
+## 7. 系统架构与启动指南
+
+### 7.1 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              客户端浏览器                                     │
+│                         http://localhost:8080                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP POST /api/infer
+                                    │ (multipart: image1, image2, model)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        C++ Gateway (httpserver)                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  http_server.cpp                                                      │  │
+│  │   - HTTP 服务器 (端口 8080)                                           │  │
+│  │   - ZMQ 客户端 (连接到 tcp://127.0.0.1:50055)                         │  │
+│  │   - 接收前端请求 → 转发给 Python Worker → 返回结果给前端               │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  启动命令: ./bin/httpserver -p 52487 -w 8080                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ ZMQ Multipart
+                                    │ Frame 1: JSON metadata
+                                    │ Frame 2: image1 bytes
+                                    │ Frame 3: image2 bytes (optional)
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Python Worker (HDR GPU Worker)                          │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  hdr_gpu_worker.py                                                    │  │
+│  │   - ZMQ REP 服务 (端口 50055)                                         │  │
+│  │   - CUDA GPU 推理 (LFM_V1 + CRM_V1)                                   │  │
+│  │   - 接收图片 → GPU 推理 → 返回 JSON (含 image_b64)                    │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  启动命令: python hdr_gpu_worker.py                                        │
+│  文件位置: ai-services/hdr_gpu_worker.py                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ CUDA GPU
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           NVIDIA GPU (RTX 4060 Ti)                          │
+│  - LFM_V1 模型 (亮度融合)                                                   │
+│  - CRM_V1 模型 (色彩恢复)                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 启动顺序与流程
+
+**必须先启动的两个服务（按顺序）：**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           步骤 1: 启动 Python GPU Worker                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  # 终端 1                                                                    │
+│  cd /home/jym/cpp/gw-server/ai-services                                    │
+│  source ~/venv/hdr-venv/bin/activate                                       │
+│  python hdr_gpu_worker.py                                                  │
+│                                                                             │
+│  预期输出:                                                                  │
+│  GPU available: NVIDIA GeForce RTX 4060 Ti                                  │
+│  HDR models loaded successfully!                                             │
+│  HDR GPU Worker listening on port 50055...                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           步骤 2: 启动 C++ Gateway                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  # 终端 2                                                                    │
+│  cd /home/jym/cpp/gw-server/server                                          │
+│  ./bin/httpserver -p 52487 -w 8080                                          │
+│                                                                             │
+│  预期输出:                                                                  │
+│  Starting Gateway Server...                                                  │
+│    TCP Port:   52487                                                        │
+│    HTTP Port:  8080                                                         │
+│  服务器已启动，监听端口 52487                                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           步骤 3: 打开浏览器使用                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. 浏览器访问: http://localhost:8080                                       │
+│  2. 点击 "云端模型推理" 按钮                                                │
+│  3. 选择模型类型 (YOLO / 语义分割 / 多曝光融合 HDR)                         │
+│  4. 上传图片                                                                │
+│  5. 点击 "开始推理"                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.3 一键启动脚本
+
+项目根目录已提供启动脚本：
+
+```bash
+/home/jym/cpp/gw-server/start_inference_services.sh
+```
+
+### 7.4 Worker 文件说明
+
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| GPU Worker | `ai-services/hdr_gpu_worker.py` | 使用 NVIDIA GPU 推理（当前默认） |
+| CPU Worker | `ai-services/hdr_worker.py` | 使用 CPU 推理（速度较慢） |
+| Mock Worker | `ai-services/zmq_worker.py` | OpenCV Mock 处理（用于开发调试） |
+| Gateway | `server/src/http_server.cpp` | ZMQ 地址硬编码在第 355 行 |
+
+### 7.5 切换 CPU/GPU Worker
+
+**启动 GPU Worker（默认）：**
+```bash
+cd /home/jym/cpp/gw-server/ai-services
+source ~/venv/hdr-venv/bin/activate
+python hdr_gpu_worker.py
+```
+
+**启动 CPU Worker：**
+```bash
+cd /home/jym/cpp/gw-server/ai-services
+source ~/venv/hdr-venv/bin/activate
+python hdr_worker.py
+```
+
+### 7.6 端口配置
+
+| 服务 | 端口 | 配置文件 |
+|------|------|----------|
+| C++ Gateway HTTP | 8080 | 启动参数 `-w 8080` |
+| C++ Gateway TCP | 52487 | 启动参数 `-p 52487` |
+| Python Worker ZMQ | 50055 | `http_server.cpp` 第 355 行硬编码 |
+
+### 7.7 数据流时序图
+
+```
+用户浏览器                    C++ Gateway                Python GPU Worker               NVIDIA GPU
+    │                            │                            │                            │
+    │  1. 选择图片并推理          │                            │                            │
+    │───────────────────────────>│                            │                            │
+    │                            │  2. 解析 multipart         │                            │
+    │                            │  3. ZMQ Frame 1 (JSON)    │                            │
+    │                            │───────────────────────────>│                            │
+    │                            │  4. ZMQ Frame 2 (image1)  │                            │
+    │                            │───────────────────────────>│                            │
+    │                            │  5. ZMQ Frame 3 (image2)  │                            │
+    │                            │───────────────────────────>│                            │
+    │                            │                            │  6. 解码图片              │
+    │                            │                            │  7. GPU 推理调用           │
+    │                            │                            │───────────────────────────>│
+    │                            │                            │  8. LFM_V1 + CRM_V1       │
+    │                            │                            │<───────────────────────────│
+    │                            │  9. JSON (image_b64)      │                            │
+    │<───────────────────────────│<───────────────────────────│                            │
+    │  10. 显示结果图片          │                            │                            │
+```
+
+### 7.8 快速测试命令
+
+```bash
+# 测试 HDR 融合
+curl -X POST http://127.0.0.1:8080/api/infer \
+  -F "image1=@test_low.jpg" \
+  -F "image2=@test_high.jpg" \
+  -F "model=hdr_fusion"
+
+# 测试 YOLO
+curl -X POST http://127.0.0.1:8080/api/infer \
+  -F "image1=@test.jpg" \
+  -F "model=yolo"
+
+# 测试语义分割
+curl -X POST http://127.0.0.1:8080/api/infer \
+  -F "image1=@test.jpg" \
+  -F "model=segmentation"
+```
+

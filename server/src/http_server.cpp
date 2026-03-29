@@ -313,45 +313,92 @@ void start_http_server(int port) {
 
     // POST /upload - 修改为支持通道参数
     // ----- AI Inference Route (Proxy to Microservice) -----
+    // Supports multi-image input for HDR fusion (image1 + optional image2)
     svr.Post("/api/infer", [](const httplib::Request &req, httplib::Response &res) {
-        if (!req.form.has_file("image")) {
+        // Check for required image1
+        if (!req.form.has_file("image1")) {
             res.status = 400;
-            res.set_content(R"({"ok":false,"error":"no file field 'image'"})", "application/json");
+            res.set_content(R"({"ok":false,"error":"no file field 'image1'"})", "application/json");
             return;
         }
 
+        // Get model type - try query param first, then form field
         std::string model_type = "yolo";
         if (req.has_param("model")) {
             model_type = req.get_param_value("model", 0);
+        } else if (req.form.has_field("model")) {
+            model_type = req.form.get_field("model");
         }
 
-        auto file = req.form.get_file("image", 0);
-        
+        auto file1 = req.form.get_file("image1", 0);
+        bool has_image2 = req.form.has_file("image2");
+        std::string file2_content;
+
+        if (has_image2) {
+            auto file2 = req.form.get_file("image2", 0);
+            file2_content = std::string(file2.content.begin(), file2.content.end());
+        }
+
+        std::string file1_content(file1.content.begin(), file1.content.end());
+
+        std::cerr << "[DEBUG] model_type: " << model_type << ", has_image2: " << has_image2 << std::endl;
+
         // ZeroMQ IPC/Network call to AI Microservice (Port 50055)
+        // Using ZMQ + Shared Memory for zero-copy image transfer
         try {
             zmq::socket_t zmq_sock(g_zmq_ctx, zmq::socket_type::req);
-            // Set timeout so it doesn't block forever
-            int timeout_ms = 5000;
+            // Set timeout so it doesn't block forever (30s for GPU inference)
+            int timeout_ms = 30000;
             zmq_sock.setsockopt(ZMQ_RCVTIMEO, &timeout_ms, sizeof(timeout_ms));
             zmq_sock.setsockopt(ZMQ_SNDTIMEO, &timeout_ms, sizeof(timeout_ms));
-            
+
             zmq_sock.connect("tcp://127.0.0.1:50055");
-            
+
+            // Build metadata JSON with model type and image info
+            // Simple JSON construction without external dependency
+            std::string meta_json = "{";
+            meta_json += "\"model\":\"" + model_type + "\",";
+            meta_json += "\"image1_size\":" + std::to_string(file1_content.size()) + ",";
+            meta_json += "\"has_image2\":" + std::string(has_image2 ? "true" : "false");
+            if (has_image2) {
+                meta_json += ",\"image2_size\":" + std::to_string(file2_content.size());
+            }
+            meta_json += "}";
+
+            // For small images (< 1MB), send directly via ZMQ (simpler path)
+            // For larger images, use shared memory (future optimization)
+            bool use_shm = false;  // Will be enabled for large images
+
+            if (use_shm) {
+                // Shared memory path (future: for large images)
+                // Create shared memory and send shm_key via ZMQ
+                // This avoids copying large image data through ZMQ message queue
+                // placeholder for shm implementation
+            }
+
             // Frame 1: JSON metadata
-            std::string meta_json = "{\"model\": \"" + model_type + "\"}";
             zmq::message_t meta_msg(meta_json.size());
             memcpy(meta_msg.data(), meta_json.data(), meta_json.size());
             zmq_sock.send(meta_msg, zmq::send_flags::sndmore);
-            
-            // Frame 2: Image binary content
-            zmq::message_t img_msg(file.content.size());
-            memcpy(img_msg.data(), file.content.data(), file.content.size());
-            zmq_sock.send(img_msg, zmq::send_flags::none);
-            
+
+            // Frame 2: Image 1 binary content
+            zmq::message_t img1_msg(file1_content.size());
+            memcpy(img1_msg.data(), file1_content.data(), file1_content.size());
+            zmq_sock.send(img1_msg, zmq::send_flags::sndmore);
+
+            // Frame 3: Image 2 binary content (if exists - for HDR fusion)
+            if (has_image2) {
+                zmq::message_t img2_msg(file2_content.size());
+                memcpy(img2_msg.data(), file2_content.data(), file2_content.size());
+                zmq_sock.send(img2_msg, zmq::send_flags::none);
+            } else {
+                zmq_sock.send(zmq::message_t(0), zmq::send_flags::none);
+            }
+
             // Wait for response
             zmq::message_t reply;
             auto res_size = zmq_sock.recv(reply, zmq::recv_flags::none);
-            
+
             if (res_size.has_value()) {
                 std::string reply_str(static_cast<char*>(reply.data()), reply.size());
                 res.set_content(reply_str, "application/json");

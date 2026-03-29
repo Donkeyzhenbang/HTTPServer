@@ -924,7 +924,15 @@ const inferLog = document.getElementById('inferLogModal');
 const inferResultImage = document.getElementById('inferResultImage');
 const inferResultLabel = document.getElementById('inferResultLabel');
 const mainImageEl = document.getElementById('mainImage');
+
+// Multi-image support
 let selectedInferImageBlob = null;
+let selectedInferImageBlob2 = null;
+const inferPreview2 = document.getElementById('inferPreview2');
+const inferImgLabel2 = document.getElementById('inferImgLabel2');
+const image2Group = document.getElementById('image2Group');
+const inferBeforeImage = document.getElementById('inferBeforeImage');
+const inferBeforeLabel = document.getElementById('inferBeforeLabel');
 
 function appendInferLog(msg, type='info') {
     const entry = document.createElement('div');
@@ -937,30 +945,68 @@ function appendInferLog(msg, type='info') {
     inferLog.scrollTop = inferLog.scrollHeight;
 }
 
-
+// Model selection change handler
+const inferModelSelectModal = document.getElementById('inferModelSelectModal');
+if (inferModelSelectModal) {
+    inferModelSelectModal.addEventListener('change', (e) => {
+        const modelType = e.target.value;
+        if (modelType === 'hdr_fusion') {
+            // Show second image upload for HDR fusion
+            image2Group.style.display = 'block';
+        } else {
+            // Hide second image upload for single-image models
+            image2Group.style.display = 'none';
+            selectedInferImageBlob2 = null;
+            inferPreview2.style.display = 'none';
+            inferPreview2.removeAttribute('src');
+            inferImgLabel2.innerText = "请选择第二张图片";
+            inferImgLabel2.style.display = 'inline';
+        }
+    });
+}
 
 if (inferModalOpenBtn) {
     inferModalOpenBtn.addEventListener('click', () => {
         inferModal.style.display = 'flex';
         inferLog.innerHTML = '<div class="log-entry info">准备推送到多模态推理微服务...</div>';
         selectedInferImageBlob = null;
-        
-        // Reset file input
+        selectedInferImageBlob2 = null;
+
+        // Reset file inputs
         const fileInput = document.getElementById('inferImageFile');
         if (fileInput) fileInput.value = '';
-        
+        const fileInput2 = document.getElementById('inferImageFile2');
+        if (fileInput2) fileInput2.value = '';
+
+        // Reset previews
         inferPreview.style.display = 'none';
         inferPreview.removeAttribute('src');
-        inferImgLabel.innerText = "请先选择一张本地图片";
+        inferImgLabel.innerText = "请先选择图片";
         inferImgLabel.style.display = 'inline';
+
+        inferPreview2.style.display = 'none';
+        inferPreview2.removeAttribute('src');
+        inferImgLabel2.innerText = "请选择第二张图片";
+        inferImgLabel2.style.display = 'inline';
+
+        inferBeforeImage.style.display = 'none';
+        inferBeforeImage.removeAttribute('src');
+        inferBeforeLabel.innerText = "等待上传";
+        inferBeforeLabel.style.display = 'inline';
+
         inferResultImage.style.display = 'none';
         inferResultImage.removeAttribute('src');
         inferResultLabel.innerText = "等待执行推理";
         inferResultLabel.style.display = 'inline';
+
+        // Reset model selection
+        const modelSelect = document.getElementById('inferModelSelectModal');
+        if (modelSelect) modelSelect.value = 'yolo';
+        image2Group.style.display = 'none';
     });
 }
 
-// Add File Input changed event to preview
+// Add File Input changed event for image 1
 const inferImageFile = document.getElementById('inferImageFile');
 if (inferImageFile) {
     inferImageFile.addEventListener('change', (e) => {
@@ -970,7 +1016,28 @@ if (inferImageFile) {
             reader.onload = function(evt) {
                 inferPreview.src = evt.target.result;
                 inferPreview.style.display = 'block';
-              inferImgLabel.style.display = 'none';
+                inferImgLabel.style.display = 'none';
+                // Also show in "Before" panel
+                inferBeforeImage.src = evt.target.result;
+                inferBeforeImage.style.display = 'block';
+                inferBeforeLabel.style.display = 'none';
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+}
+
+// Add File Input changed event for image 2
+const inferImageFile2 = document.getElementById('inferImageFile2');
+if (inferImageFile2) {
+    inferImageFile2.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            selectedInferImageBlob2 = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                inferPreview2.src = evt.target.result;
+                inferPreview2.style.display = 'block';
+                inferImgLabel2.style.display = 'none';
             }
             reader.readAsDataURL(e.target.files[0]);
         }
@@ -978,8 +1045,6 @@ if (inferImageFile) {
 }
 
 function closeInferModal() {
-
-
     inferModal.style.display = 'none';
 }
 
@@ -989,29 +1054,40 @@ if(cancelInfer) cancelInfer.addEventListener('click', closeInferModal);
 if (startInferBtn) {
     startInferBtn.addEventListener('click', async () => {
         if (!selectedInferImageBlob) {
-            appendInferLog("错误: 当前没有可抓取的图像进行推理", "error");
+            appendInferLog("错误: 请先选择图片进行推理", "error");
             return;
         }
 
         const modelType = document.getElementById('inferModelSelectModal').value;
         const modelName = document.getElementById('inferModelSelectModal').options[document.getElementById('inferModelSelectModal').selectedIndex].text;
-        
+
+        // Check for HDR fusion requiring 2 images
+        if (modelType === 'hdr_fusion' && !selectedInferImageBlob2) {
+            appendInferLog("错误: 多曝光融合需要2张图片(低曝光+高曝光)", "error");
+            return;
+        }
+
         startInferBtn.disabled = true;
         startInferBtn.innerText = '推理中...';
         appendInferLog(`开始启动 ${modelName} 任务...`, 'info');
-        
+
         try {
             let formData = new FormData();
-            formData.append('image', selectedInferImageBlob, 'stream_capture.jpg');
+            formData.append('image1', selectedInferImageBlob, 'image1.jpg');
             formData.append('model', modelType);
-            
+
+            // Add second image if exists (for HDR fusion)
+            if (selectedInferImageBlob2) {
+                formData.append('image2', selectedInferImageBlob2, 'image2.jpg');
+            }
+
             const inferRes = await fetch('/api/infer', {
                 method: 'POST',
                 body: formData
             });
-            
+
             const dataText = await inferRes.text();
-            
+
             if (inferRes.ok) {
                 appendInferLog(`推理微服务返回成功！`, 'success');
                 try {
@@ -1023,7 +1099,7 @@ if (startInferBtn) {
                         inferResultLabel.style.display = 'none';
                     }
                 } catch(e) {
-                    appendInferLog("JSON 解析结果失败", "error");
+                    appendInferLog("JSON 解析结果失败: " + e.message, "error");
                 }
                 showNotification('微服务推理成功！', 'success');
             } else {

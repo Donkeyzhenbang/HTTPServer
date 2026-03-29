@@ -65,8 +65,9 @@ set(SERVER_CORE_SOURCES
 )
 
 add_library(server_core STATIC ${SERVER_CORE_SOURCES})
+target_compile_definitions(server_core PRIVATE THREADED)
 target_link_libraries(server_core
-    PRIVATE 
+    PRIVATE
         base
         pthread
         OpenSSL::Crypto
